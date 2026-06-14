@@ -126,7 +126,9 @@ img { max-width: 100%; display: block; }
    BOTTOM NAV
 ================================================================ */
 .bottom-nav {
-  height: var(--nav-h); display: flex; flex-shrink: 0;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex; flex-shrink: 0;
   background: var(--white); border-top: 1px solid var(--border);
 }
 .nav-btn {
@@ -149,7 +151,7 @@ img { max-width: 100%; display: block; }
 ================================================================ */
 .fab {
   position: fixed;
-  bottom: calc(var(--nav-h) + 16px);
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
   right: calc(50% - 240px + 20px);
   width: 52px; height: 52px; border-radius: 50%;
   background: var(--sage); color: #fff; font-size: 1.6rem;
@@ -771,7 +773,7 @@ img { max-width: 100%; display: block; }
    TOAST & CONFIRM
 ================================================================ */
 .toast {
-  position: fixed; bottom: calc(var(--nav-h) + 72px);
+  position: fixed; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 72px);
   left: 50%; transform: translateX(-50%) translateY(10px);
   background: var(--text); color: var(--white); border-radius: 20px;
   padding: 8px 20px; font-size: .82rem; font-weight: 500; z-index: 9999; opacity: 0;
