@@ -4530,6 +4530,15 @@ async function fetchDailyTasks() {
   }
 }
 
+async function refreshDailyTasks() {
+  const btn = document.getElementById('quest-refresh-btn');
+  if (btn) btn.style.opacity = '0.4';
+  localStorage.removeItem('cachedTasks');
+  await renderQuests();
+  if (btn) btn.style.opacity = '';
+  showToast('任務已更新');
+}
+
 function updateEarthArchive(tasks) {
   if (!tasks) return;
   const archive = getData('earthArchive', []);
