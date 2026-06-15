@@ -4508,7 +4508,7 @@ const TASKS_API_URL = 'https://api.github.com/repos/ffffffffrog-glitch/fetching_
 async function fetchDailyTasks() {
   const cached  = getData('cachedTasks', null);
   const STALE_MS = 30 * 60 * 1000; // re-fetch if same-day cache is >30 min old
-  const isFresh = cached && (cached.date === todayStr() || cached.date === yesterdayStr()) && cached.fetchedAt && (Date.now() - cached.fetchedAt < STALE_MS);
+  const isFresh = cached && cached.date === todayStr() && cached.fetchedAt && (Date.now() - cached.fetchedAt < STALE_MS);
   if (isFresh) { updateEarthArchive(cached); return cached; }
   try {
     const res = await fetch(TASKS_API_URL, {
