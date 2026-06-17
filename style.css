@@ -1009,7 +1009,13 @@ img { max-width: 100%; display: block; }
   border-radius: 3px;
   background: var(--bg); border: 1px solid var(--border);
   cursor: pointer; transition: opacity .1s;
+  position: relative; display: flex; align-items: center; justify-content: center;
 }
+.hhg-day-num {
+  font-size: 7px; line-height: 1; color: rgba(80,80,80,0.5); user-select: none; pointer-events: none;
+}
+.hhg-cell.hhg-done .hhg-day-num,
+.hhg-cell.hhg-skip .hhg-day-num { color: rgba(255,255,255,0.85); }
 .hhg-cell:active { opacity: .7; }
 .hhg-cell.hhg-future { background: transparent; border-color: transparent; cursor: default; }
 .hhg-cell.hhg-today  { outline: 2px solid var(--sage); outline-offset: 1px; }
@@ -1792,7 +1798,7 @@ body.storage-error .page { padding-top: 44px; }
 .workout-bubble:active { opacity: .75; }
 .workout-bubble.left  {
   background: var(--white);
-  border: 1px solid var(--border); border-radius: 14px; border-top-left-radius: 3px;
+  border-radius: 14px; border-top-left-radius: 3px;
 }
 .workout-bubble.right {
   background: var(--sage);
@@ -2120,6 +2126,11 @@ body.storage-error .page { padding-top: 44px; }
   font-size: .75rem; font-weight: 700; letter-spacing: .1em;
   text-transform: uppercase; color: var(--text-3); margin-bottom: 4px;
 }
+.qhc-credit {
+  font-size: .7rem; font-weight: 500; color: var(--sage); text-decoration: none;
+  letter-spacing: .02em;
+}
+.qhc-credit:hover { text-decoration: underline; }
 .qhc-date { font-size: .8rem; color: var(--text-3); margin-bottom: 6px; }
 .qhc-progress {
   font-size: .88rem; font-weight: 700; color: var(--text-2);
@@ -2710,6 +2721,9 @@ body.storage-error .page { padding-top: 44px; }
   .pdt-goal-chip { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
   .pdt-goal-chip-val { font-size: 20px; font-weight: 600; color: var(--text); }
   .pdt-goal-chip-lbl { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
+  /* ── InBody page: ensure scroll works on desktop ── */
+  #page-inbody { overflow-y: auto; }
 
   /* ── Modals: centered floating dialogs on desktop ── */
   .modal-overlay { align-items: center; }

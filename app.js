@@ -107,20 +107,20 @@ function icon(name, size = 16) {
 // ================================================================
 const LEVEL_TABLE = [
   { level:1,  name:'旅人',       xp:0 },
-  { level:2,  name:'廚房學徒',   xp:100 },
-  { level:3,  name:'食材採集者', xp:250 },
-  { level:4,  name:'行腳廚師',   xp:500 },
-  { level:5,  name:'健康冒險者', xp:900 },
-  { level:6,  name:'鍛鍊勇士',   xp:1400 },
-  { level:7,  name:'飲食騎士',   xp:2100 },
-  { level:8,  name:'精英戰士',   xp:3000 },
-  { level:9,  name:'體能賢者',   xp:4200 },
-  { level:10, name:'傳說廚師',   xp:6000 },
-  { level:11, name:'不滅勇者',   xp:8500 },
-  { level:12, name:'奧義探求者', xp:12000 },
-  { level:13, name:'健康守護者', xp:17000 },
-  { level:14, name:'龍的傳人',   xp:24000 },
-  { level:15, name:'奇幻大師',   xp:34000 },
+  { level:2,  name:'廚房學徒',   xp:300 },
+  { level:3,  name:'食材採集者', xp:750 },
+  { level:4,  name:'行腳廚師',   xp:1500 },
+  { level:5,  name:'健康冒險者', xp:2700 },
+  { level:6,  name:'鍛鍊勇士',   xp:4200 },
+  { level:7,  name:'飲食騎士',   xp:6300 },
+  { level:8,  name:'精英戰士',   xp:9000 },
+  { level:9,  name:'體能賢者',   xp:12600 },
+  { level:10, name:'傳說廚師',   xp:18000 },
+  { level:11, name:'不滅勇者',   xp:26000 },
+  { level:12, name:'奧義探求者', xp:36000 },
+  { level:13, name:'健康守護者', xp:51000 },
+  { level:14, name:'龍的傳人',   xp:72000 },
+  { level:15, name:'奇幻大師',   xp:102000 },
 ];
 
 const ACHIEVEMENTS_DEF = {
@@ -2053,15 +2053,17 @@ function _buildPdtInbody() {
         <button class="btn-primary" onclick="navigateTo('inbody')">＋ 新增測量</button>
       </div>
       ${records.map(rec => `
-        <div class="pdt-inbody-row" onclick="navigateTo('inbody')">
+        <div class="pdt-inbody-row">
           <div>
             <div class="pdt-inbody-date">${rec.date}</div>
             <div class="pdt-inbody-main">${rec.weight ?? '—'} kg</div>
-            <div class="pdt-inbody-subs">體脂 ${rec.fatPct ?? '—'}% · 肌肉 ${rec.muscle ?? '—'} kg</div>
+            <div class="pdt-inbody-subs">體脂 ${rec.fatPct ?? '—'}% · 肌肉 ${rec.muscle ?? '—'} kg · BMR ${rec.bmr ?? '—'} kcal</div>
           </div>
           <div class="pdt-inbody-metrics">
             <div class="pdt-inbody-metric"><strong>${rec.bmi ?? '—'}</strong><span>BMI</span></div>
             <div class="pdt-inbody-metric"><strong>${rec.visceral ?? '—'}</strong><span>內臟脂肪</span></div>
+            <div class="pdt-inbody-metric"><strong>${rec.fatPct != null ? rec.fatPct + '%' : '—'}</strong><span>體脂率</span></div>
+            <div class="pdt-inbody-metric"><strong>${rec.muscle != null ? rec.muscle + ' kg' : '—'}</strong><span>肌肉量</span></div>
           </div>
         </div>`).join('')}
     </div>`;
@@ -2084,14 +2086,22 @@ function _buildPdtAchievements() {
     { key:'hidden', label:'隱藏' },
   ];
 
-  const filtered = allEntries.filter(([id, def]) => {
-    if (_pdtAchCat && def.cat !== _pdtAchCat) return false;
-    if (_pdtAchSearch) {
-      const q = _pdtAchSearch.toLowerCase();
-      if (!(def.name || '').toLowerCase().includes(q) && !(def.desc || '').toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  const filtered = allEntries
+    .filter(([id, def]) => {
+      if (_pdtAchCat && def.cat !== _pdtAchCat) return false;
+      if (_pdtAchSearch) {
+        const q = _pdtAchSearch.toLowerCase();
+        if (!(def.name || '').toLowerCase().includes(q) && !(def.desc || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    })
+    .sort(([idA], [idB]) => {
+      const aU = unlocked.has(idA), bU = unlocked.has(idB);
+      if (aU && !bU) return -1;
+      if (!aU && bU) return 1;
+      if (aU && bU) return (achDates[idB] || '').localeCompare(achDates[idA] || '');
+      return 0;
+    });
 
   const catHtml = CATS.map(c =>
     `<button class="pdt-ach-cat-chip${_pdtAchCat === c.key ? ' active' : ''}" onclick="_filterPdtAch(null,'${c.key}')">${c.label}</button>`
@@ -3479,7 +3489,7 @@ function _buildWorkoutEntryBubble(e, isToday) {
       ${e.intensity ? `<div class="wb-detail">${e.intensity}</div>` : ''}`;
   } else {
     const rows = (e.blocks || []).map(b => {
-      const spec = [b.weight != null ? `${b.weight}kg` : '體重', b.sets && b.reps ? `${b.sets}×${b.reps}` : ''].filter(Boolean).join(' · ');
+      const spec = [b.weight != null ? `${b.weight}kg` : '', b.sets && b.reps ? `${b.sets}×${b.reps}` : ''].filter(Boolean).join(' · ');
       return `<div class="wb-block-row"><span class="wb-block-name">${b.name}</span><span class="wb-block-spec">${spec}</span></div>`;
     }).join('');
     content = `<div class="wb-type-tag strength">無氧</div><div class="wb-blocks">${rows}</div>`;
@@ -3489,7 +3499,7 @@ function _buildWorkoutEntryBubble(e, isToday) {
   if (side === 'right') {
     return `<div class="workout-bubble-row right"><div class="workout-bubble right" onclick="openEditWorkout('${e.id}')">${bubbleInner}</div><svg class="wb-tail" viewBox="0 0 11 16" width="11" height="16" style="margin-left:-2px;flex-shrink:0;display:block"><path d="M0 0 H11 C9 4, 3 10, 0 13 Z" style="fill:var(--sage)"/></svg></div>`;
   } else {
-    return `<div class="workout-bubble-row left"><svg class="wb-tail" viewBox="0 0 11 16" width="11" height="16" style="margin-right:-2px;flex-shrink:0;display:block;transform:scaleX(-1)"><path d="M0 0 H11 C9 4, 3 10, 0 13 Z" style="fill:white;stroke:var(--border);stroke-width:1"/></svg><div class="workout-bubble left" onclick="openEditWorkout('${e.id}')">${bubbleInner}</div></div>`;
+    return `<div class="workout-bubble-row left"><svg class="wb-tail" viewBox="0 0 11 16" width="11" height="16" style="margin-right:-2px;flex-shrink:0;display:block;transform:scaleX(-1)"><path d="M0 0 H11 C9 4, 3 10, 0 13 Z" style="fill:white"/></svg><div class="workout-bubble left" onclick="openEditWorkout('${e.id}')">${bubbleInner}</div></div>`;
   }
 }
 
@@ -4054,37 +4064,38 @@ function buildHistoryGrid(habit, log) {
   const today = new Date();
   const todayDs = dateStr(today);
 
-  // Sunday of current week
+  // Monday of current week
   const dow = today.getDay();
-  const currentSun = new Date(today);
-  currentSun.setDate(today.getDate() - dow);
-  currentSun.setHours(0, 0, 0, 0);
+  const daysToMon = (dow + 6) % 7; // Sun→6, Mon→0, Tue→1…
+  const currentMon = new Date(today);
+  currentMon.setDate(today.getDate() - daysToMon);
+  currentMon.setHours(0, 0, 0, 0);
 
   // Build weeks oldest→newest (left→right)
   const weeks = [];
   for (let w = WEEKS - 1; w >= 0; w--) {
-    const sun = new Date(currentSun);
-    sun.setDate(currentSun.getDate() - w * 7);
-    weeks.push(sun);
+    const mon = new Date(currentMon);
+    mon.setDate(currentMon.getDate() - w * 7);
+    weeks.push(mon);
   }
 
   // Month labels: show at column where month first appears
   const monthLabels = {};
   let prevM = -1;
-  weeks.forEach((sun, col) => {
-    if (sun.getMonth() !== prevM) {
-      prevM = sun.getMonth();
-      const yr = sun.getFullYear();
-      const mo = sun.getMonth() + 1;
+  weeks.forEach((mon, col) => {
+    if (mon.getMonth() !== prevM) {
+      prevM = mon.getMonth();
+      const yr = mon.getFullYear();
+      const mo = mon.getMonth() + 1;
       monthLabels[col] = mo === 1 ? `${yr}\n${mo}月` : `${mo}月`;
     }
   });
 
   // Generate all cells (grid-auto-flow:column → fills top→bottom per column)
   let cellsHtml = '';
-  weeks.forEach((sun) => {
+  weeks.forEach((mon) => {
     for (let d = 0; d < 7; d++) {
-      const cd = new Date(sun); cd.setDate(sun.getDate() + d);
+      const cd = new Date(mon); cd.setDate(mon.getDate() + d);
       const ds  = dateStr(cd);
       const isFuture = cd > today;
       const isToday  = ds === todayDs;
@@ -4102,12 +4113,13 @@ function buildHistoryGrid(habit, log) {
         else if (s === 'skip') { cls += ' hhg-skip'; style = `background:${habit.color}`; }
         onClick = `onclick="toggleHistoryCell('${habit.id}','${ds}')"`;
       }
-      cellsHtml += `<div class="${cls}" style="${style}" ${onClick}></div>`;
+      const dayNum = isFuture ? '' : `<span class="hhg-day-num">${cd.getDate()}</span>`;
+      cellsHtml += `<div class="${cls}" style="${style}" ${onClick}>${dayNum}</div>`;
     }
   });
 
   // Month label row (CSS grid, one cell per column)
-  const monthRowHtml = weeks.map((_, i) => {
+  const monthRowHtml = weeks.map((mon, i) => {
     if (!monthLabels[i]) return `<div class="hhg-month-cell"></div>`;
     const lines = monthLabels[i].split('\n');
     return `<div class="hhg-month-cell has-label">${lines.join('<br>')}</div>`;
@@ -4122,7 +4134,7 @@ function buildHistoryGrid(habit, log) {
         </div>
       </div>
       <div class="hhg-day-labels" style="--hhg-cell:${CELL}px;--hhg-gap:${GAP}px">
-        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
       </div>
     </div>`;
 }
@@ -4584,6 +4596,52 @@ function saveWeightLog() {
   setData('weightLog', log);
   showToast(`已記錄 ${val} kg`);
   if (document.getElementById('profile-content')) renderProfile();
+}
+
+function checkDailyWeightPrompt() {
+  const today = todayStr();
+  const wLog = getData('weightLog', {});
+  if (wLog[today] != null) return;
+  if (getData('lastWeightPromptDate', '') === today) return;
+  setData('lastWeightPromptDate', today);
+  setTimeout(_showWeightPrompt, 900);
+}
+
+function _showWeightPrompt() {
+  if (document.getElementById('weight-prompt-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'weight-prompt-overlay';
+  overlay.className = 'bottom-sheet-overlay';
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="bottom-sheet" style="max-width:380px;padding:28px 24px">
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:6px;text-align:center">⚖️ 今日體重</div>
+      <div style="font-size:.85rem;color:var(--text-2);margin-bottom:20px;text-align:center">記錄今天的體重，持續追蹤進度</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:20px">
+        <input type="number" id="wp-weight-input" class="form-input" placeholder="65.0" step="0.1" min="20" max="300"
+               style="flex:1;font-size:1.4rem;text-align:center;font-weight:600"
+               onkeydown="if(event.key==='Enter')saveWeightFromPrompt()">
+        <span style="font-size:1rem;color:var(--text-2);font-weight:500">kg</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-ghost" style="flex:1" onclick="document.getElementById('weight-prompt-overlay').remove();document.body.style.overflow=''">跳過</button>
+        <button class="btn-primary" style="flex:2" onclick="saveWeightFromPrompt()">記錄</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('wp-weight-input')?.focus(), 150);
+}
+
+function saveWeightFromPrompt() {
+  const val = parseFloat(document.getElementById('wp-weight-input')?.value);
+  if (!val || val <= 0) { showToast('請輸入有效體重'); return; }
+  const log = getData('weightLog', {});
+  log[todayStr()] = val;
+  setData('weightLog', log);
+  document.getElementById('weight-prompt-overlay')?.remove();
+  document.body.style.overflow = '';
+  showToast(`已記錄 ${val} kg ✓`);
 }
 
 // ===== SINGLE-METRIC TREND CHART =====
@@ -5325,7 +5383,7 @@ async function renderQuests() {
       ${isStale && !usingArchiveFallback ? `<div class="quest-stale-banner">${icon('info', 13)} 顯示 ${tasks.date} 的任務，今日任務更新中</div>` : ''}
       ${usingArchiveFallback ? `<div class="quest-stale-banner" style="background:#e8f2ff;border-left-color:#4a7fc0;color:#1a5ea0">${icon('info', 13)} 無法取得最新任務，以下為任務庫隨機任務</div>` : ''}
       <div class="quest-header-card ${allDone ? 'all-done' : ''}">
-        <div class="qhc-title">地球Online · 每日任務</div>
+        <div class="qhc-title">地球Online · 每日任務 <a href="https://www.threads.net/@earthonlinequest" target="_blank" rel="noopener" class="qhc-credit">• @earthonlinequest</a></div>
         <div class="qhc-date">${tasks.date}</div>
         <div class="qhc-progress">
           主線 ${mainDone}/${tasks.main.length}
@@ -6055,6 +6113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   state.currentDate = todayStr();
   renderProfile();
   updateNavBar('profile');
+  checkDailyWeightPrompt();
   // Diary swipe — touch + mouse, attached to document so scroll containers don't block it
   document.addEventListener('touchstart', e => { _diarySX = e.touches[0].clientX; _diarySY = e.touches[0].clientY; }, { passive: true });
   document.addEventListener('touchend', e => {
