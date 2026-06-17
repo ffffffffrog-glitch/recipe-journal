@@ -724,7 +724,11 @@ img { max-width: 100%; display: block; }
 
 .sheet-handle {
   width: 36px; height: 4px; background: var(--border); border-radius: 2px;
-  margin: 12px auto 14px;
+  margin: 0 auto;
+  padding: 12px 20px 14px;
+  background-clip: content-box;
+  box-sizing: content-box;
+  cursor: grab;
 }
 .sheet-title {
   font-size: 1rem; font-weight: 700; color: var(--text);
@@ -936,6 +940,17 @@ img { max-width: 100%; display: block; }
   flex: 1; min-width: 0;
 }
 
+/* Drag handle */
+.habit-drag-btn {
+  font-size: 1.1rem; color: var(--text-4); flex-shrink: 0;
+  padding: 8px 4px 8px 8px; touch-action: none; cursor: grab; line-height: 1;
+}
+.habit-row.is-dragging {
+  opacity: .85; box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  border-color: var(--sage-muted); background: var(--sage-faint);
+  position: relative; z-index: 10;
+}
+
 /* Right: 5 day squares */
 .habit-row-squares {
   display: flex; gap: 6px; flex-shrink: 0;
@@ -1112,6 +1127,18 @@ img { max-width: 100%; display: block; }
    INBODY PAGE
 ================================================================ */
 .inbody-page { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 16px 80px; display: flex; flex-direction: column; }
+
+/* 7-day weight chart card */
+.weight-7d-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 10px 14px 6px;
+  margin-bottom: 10px;
+}
+.weight-7d-title {
+  font-size: .72rem; font-weight: 700; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+}
+.weight-7d-canvas { display: block; width: 100%; }
 
 /* Add button at top */
 .inbody-add-btn {
@@ -1659,6 +1686,7 @@ body.storage-error .page { padding-top: 44px; }
 }
 .record-carousel {
   display: flex;
+  width: 100%;
   will-change: transform;
   user-select: none; -webkit-user-select: none;
   cursor: grab;

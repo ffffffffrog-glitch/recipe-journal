@@ -633,6 +633,7 @@ function openBottomSheet(id) {
   const onStart = e => { _sy = e.touches[0].clientY; _dragging = true; sheet.style.transition = 'none'; };
   const onMove  = e => {
     if (!_dragging) return;
+    e.preventDefault();
     const dy = e.touches[0].clientY - _sy;
     if (dy > 0) sheet.style.transform = `translateY(${dy}px)`;
   };
@@ -651,7 +652,7 @@ function openBottomSheet(id) {
   }
   handle._sheetOnStart = onStart; handle._sheetOnMove = onMove; handle._sheetOnEnd = onEnd;
   handle.addEventListener('touchstart', onStart, { passive: true });
-  handle.addEventListener('touchmove',  onMove,  { passive: true });
+  handle.addEventListener('touchmove',  onMove,  { passive: false });
   handle.addEventListener('touchend',   onEnd);
 }
 function closeBottomSheet(id) {
@@ -3817,6 +3818,7 @@ function renderHabits() {
       </div>`;
   }
   container.innerHTML = html;
+  _initHabitDrag(container);
 }
 
 function _buildHabitDateHeader() {
@@ -3835,6 +3837,46 @@ function _buildHabitDateHeader() {
     <div class="habit-date-spacer"></div>
     <div class="habit-date-cols">${cols}</div>
   </div>`;
+}
+
+function _initHabitDrag(container) {
+  if (window.innerWidth >= 1024) return;
+  let dragEl = null, lastCY = 0;
+
+  container.addEventListener('touchstart', e => {
+    if (!e.target.closest('.habit-drag-btn')) return;
+    e.stopPropagation();
+    dragEl = e.target.closest('.habit-row');
+    if (!dragEl) return;
+    lastCY = e.touches[0].clientY;
+    dragEl.classList.add('is-dragging');
+    navigator.vibrate?.(20);
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (!dragEl) return;
+    e.preventDefault();
+    const cy = e.touches[0].clientY;
+    const dy = cy - lastCY;
+    lastCY = cy;
+    const rows = [...container.querySelectorAll('.habit-row')];
+    const idx = rows.indexOf(dragEl);
+    if (dy < -18 && idx > 0)               rows[idx - 1].before(dragEl);
+    else if (dy > 18 && idx < rows.length - 1) rows[idx + 1].after(dragEl);
+  }, { passive: false });
+
+  container.addEventListener('touchend', () => {
+    if (!dragEl) return;
+    dragEl.classList.remove('is-dragging');
+    const newOrder = [...container.querySelectorAll('.habit-row')].map(r => r.dataset.habitId).filter(Boolean);
+    const habits   = getData('habits', []);
+    const active   = habits.filter(h => !h.archived);
+    const archived = habits.filter(h => h.archived);
+    const reordered = newOrder.map(id => active.find(h => h.id === id)).filter(Boolean);
+    const missing   = active.filter(h => !newOrder.includes(h.id));
+    setData('habits', [...reordered, ...missing, ...archived]);
+    dragEl = null;
+  });
 }
 
 function buildHabitRow(habit) {
@@ -3871,12 +3913,13 @@ function buildHabitRow(habit) {
   }
 
   return `
-    <div class="habit-row" onclick="openHabitDetail('${habit.id}')">
+    <div class="habit-row" data-habit-id="${habit.id}" onclick="openHabitDetail('${habit.id}')">
       <div class="habit-row-info">
         <span class="habit-row-dot" style="background:${habit.color}"></span>
         <span class="habit-row-name" style="color:${habit.color}">${habit.name}</span>
       </div>
       <div class="habit-row-squares">${squaresHtml}</div>
+      <div class="habit-drag-btn" onclick="event.stopPropagation()">⠿</div>
     </div>`;
 }
 
@@ -4411,6 +4454,10 @@ function renderInbody() {
         <span class="qw-unit">kg</span>
         <button class="qw-btn" onclick="saveWeightLog()">記錄</button>
       </div>
+    </div>
+    <div class="weight-7d-card">
+      <div class="weight-7d-title">近7日體重</div>
+      <canvas id="weight-7d-chart" class="weight-7d-canvas"></canvas>
     </div>`;
 
   // Last record time — plain centered text, no box
@@ -4472,6 +4519,9 @@ function renderInbody() {
 
   container.innerHTML = html;
 
+  // 7-day weight chart
+  _draw7DayWeightChart('weight-7d-chart');
+
   // Draw trend charts
   if (allRecords.length >= 2) {
     drawSingleTrendChart('trend-weight', allRecords, 'weight', 'kg', '#4D6A55', true);
@@ -4493,6 +4543,73 @@ function renderInbody() {
 function setInbodyTrendRange(range) {
   _inbodyTrendRange = range;
   renderInbody();
+}
+
+function _draw7DayWeightChart(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const wLog = getData('weightLog', {});
+  const inbodyByDate = {};
+  getData('inbody', []).forEach(rec => { if (rec.weight != null) inbodyByDate[rec.date] = rec.weight; });
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = dateStr(d);
+    const w = wLog[ds] != null ? wLog[ds] : (inbodyByDate[ds] != null ? inbodyByDate[ds] : null);
+    days.push({ w, label: (d.getMonth() + 1) + '/' + d.getDate() });
+  }
+  const vals = days.filter(d => d.w != null).map(d => d.w);
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 300;
+  const H = 70;
+  canvas.style.height = H + 'px';
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  if (!vals.length) {
+    ctx.fillStyle = 'rgba(160,160,160,0.5)';
+    ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('尚無體重記錄', W / 2, H / 2 + 4);
+    return;
+  }
+  const PAD = { t: 18, b: 18, l: 4, r: 4 };
+  const cw = W - PAD.l - PAD.r;
+  const ch = H - PAD.t - PAD.b;
+  const minV = Math.min(...vals) - 0.3;
+  const maxV = Math.max(...vals) + 0.3;
+  const range = maxV - minV || 1;
+  const px = i => PAD.l + (i / 6) * cw;
+  const py = v => PAD.t + (1 - (v - minV) / range) * ch;
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, PAD.t, 0, PAD.t + ch);
+  grad.addColorStop(0, 'rgba(77,106,85,0.15)');
+  grad.addColorStop(1, 'rgba(77,106,85,0)');
+  const pts = days.map((d, i) => ({ x: px(i), y: d.w != null ? py(d.w) : null }));
+  const firstPt = pts.find(p => p.y != null);
+  const lastPt  = [...pts].reverse().find(p => p.y != null);
+  if (firstPt && lastPt) {
+    ctx.beginPath();
+    let started = false;
+    pts.forEach(p => { if (p.y == null) return; if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y); });
+    ctx.lineTo(lastPt.x, PAD.t + ch); ctx.lineTo(firstPt.x, PAD.t + ch); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+  }
+  // Line
+  ctx.beginPath();
+  let started = false;
+  pts.forEach(p => { if (p.y == null) return; if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y); });
+  ctx.strokeStyle = '#4D6A55'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  // Dots + values
+  days.forEach((d, i) => {
+    if (d.w == null) return;
+    ctx.beginPath(); ctx.fillStyle = '#4D6A55'; ctx.arc(pts[i].x, pts[i].y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#4D6A55'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(d.w, pts[i].x, pts[i].y - 5);
+  });
+  // Day labels
+  ctx.fillStyle = 'rgba(130,130,130,0.8)'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+  days.forEach((d, i) => ctx.fillText(d.label, pts[i].x, H - 2));
 }
 
 // Carousel state (JS-transform based — avoids overflow-x:hidden on .page)
@@ -4599,6 +4716,7 @@ function saveWeightLog() {
   setData('weightLog', log);
   showToast(`已記錄 ${val} kg`);
   if (document.getElementById('profile-content')) renderProfile();
+  if (document.getElementById('inbody-content')) renderInbody();
 }
 
 function checkDailyWeightPrompt() {
@@ -5676,9 +5794,14 @@ function _runAchievementChecks(gd) {
   if (diaryDays.length >= 100)   tryU('diary_100');
   if (diaryDays.length >= 365)   tryU('diary_365');
 
-  const todayMeals = new Set((diary[today] || []).map(e => e.meal));
-  if (['早餐','午餐','晚餐'].every(m => todayMeals.has(m)))          tryU('triple_crown');
-  if (['早餐','午餐','晚餐','點心'].every(m => todayMeals.has(m)))   tryU('all_4_meals');
+  // Check today + yesterday (guards against check running just after midnight)
+  for (let _di = 0; _di < 2; _di++) {
+    const _d = new Date(); _d.setDate(_d.getDate() - _di);
+    const _ds = dateStr(_d);
+    const _ms = new Set((diary[_ds] || []).map(e => e.meal));
+    if (['早餐','午餐','晚餐'].every(m => _ms.has(m)))        tryU('triple_crown');
+    if (['早餐','午餐','晚餐','點心'].every(m => _ms.has(m))) tryU('all_4_meals');
+  }
 
   const uniqueFoods = new Set(allEntries.map(e => e.name)).size;
   if (uniqueFoods >= 5)  tryU('variety_5');
@@ -5716,9 +5839,12 @@ function _runAchievementChecks(gd) {
   if (allEntries.some(e => e.loggedAt && new Date(e.loggedAt).getHours() < 6)) tryU('early_bird');
 
   if (goals.calories > 0) {
+    for (let _di = 0; _di < 2; _di++) {
+      const _d = new Date(); _d.setDate(_d.getDate() - _di);
+      const _t = getDailyTotals(dateStr(_d));
+      if (_t.calories > 0 && _t.calories <= goals.calories) tryU('goal_hit');
+    }
     const tot = getDailyTotals(today);
-    const pct = tot.calories / goals.calories;
-    if (tot.calories > 0 && tot.calories <= goals.calories) tryU('goal_hit');
     let gs = 0, gm = 0;
     for (let i = 0; i < 30; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
@@ -5782,16 +5908,16 @@ function _runAchievementChecks(gd) {
   if (dStreak >= 200) tryU('streak_200');
   if (dStreak >= 365) tryU('streak_365');
 
-  // COMEBACK: streak >= 3 but had a gap >= 7 days before it
+  // COMEBACK: streak >= 3 after a gap (foundPrev prevents brand-new users from triggering)
   if (dStreak >= 3) {
-    let gap = 0;
+    let gap = 0, foundPrev = false;
     for (let i = dStreak + 1; i <= dStreak + 60; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      if ((diary[dateStr(d)] || []).length > 0) break;
+      if ((diary[dateStr(d)] || []).length > 0) { foundPrev = true; break; }
       gap++;
     }
-    if (gap >= 7)  tryU('comeback');
-    if (gap >= 30) tryU('comeback_epic');
+    if (foundPrev && gap >= 7)  tryU('comeback');
+    if (foundPrev && gap >= 30) tryU('comeback_epic');
   }
 
   if (gd.level >= 3)  tryU('level_3');
