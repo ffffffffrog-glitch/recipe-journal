@@ -1612,14 +1612,22 @@ function openAddDiaryEntrySheet() {
   ['#add-panel-manual button.btn-primary','#add-panel-fooddb button.btn-primary','#add-panel-recipe button.btn-primary']
     .forEach(sel => { const b = document.querySelector(sel); if (b) b.textContent = '新增記錄'; });
   // Auto-detect meal from current time
-  const h = new Date().getHours();
-  const meal = h < 10 ? '早餐' : h < 14 ? '午餐' : h < 19 ? '晚餐' : '點心';
-  setAddMeal(meal);
+  setAddMeal(_detectMealByTime());
   switchDiaryTab('manual');
   ['dm-name','dm-amount','dm-calories','dm-protein','dm-fat','dm-carbs','dm-fiber']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderFrequentFoods();
   openBottomSheet('sheet-diary-add');
+}
+
+// 依現在時間預設餐別：~11:30 早餐、11:30–14:30 午餐、17:30–21:30 晚餐，其餘點心
+function _detectMealByTime() {
+  const now = new Date();
+  const m = now.getHours() * 60 + now.getMinutes();
+  if (m < 11 * 60 + 30) return '早餐';                       // 00:00–11:30
+  if (m < 14 * 60 + 30) return '午餐';                       // 11:30–14:30
+  if (m >= 17 * 60 + 30 && m < 21 * 60 + 30) return '晚餐';  // 17:30–21:30
+  return '點心';                                             // 14:30–17:30、21:30 後
 }
 
 function setAddMeal(meal) {
