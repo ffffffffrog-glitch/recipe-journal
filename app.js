@@ -37,9 +37,17 @@ function selectTheme(id) {
 
 function renderSettings() {
   const el = document.getElementById('export-timestamp');
-  if (!el) return;
-  const last = getData('lastExportDate', null);
-  el.textContent = last ? `上次匯出：${last}` : '尚無匯出記錄';
+  if (el) {
+    const last = getData('lastExportDate', null);
+    el.textContent = last ? `上次匯出：${last}` : '尚無匯出記錄';
+  }
+  const wt = document.getElementById('ask-weight-toggle');
+  if (wt) wt.checked = getData('askWeightDaily', true) !== false;
+}
+
+function toggleAskWeight(on) {
+  setData('askWeightDaily', !!on);
+  showToast(on ? '已開啟每日體重提醒' : '已關閉每日體重提醒');
 }
 
 function renderThemePicker() {
@@ -182,6 +190,9 @@ const ACHIEVEMENTS_DEF = {
   no_sugar_7:       { name:'甜蜜抵抗',  desc:'戒含糖飲料習慣連續達成 7 天',     icon:'zap',     cat:'habit', trigger:'習慣名稱含：戒糖、含糖、戒飲料、無糖、戒含糖' },
   no_sugar_30:      { name:'戒糖英雄',  desc:'戒含糖飲料習慣連續達成 30 天',    icon:'star',    cat:'habit', trigger:'習慣名稱含：戒糖、含糖、戒飲料、無糖、戒含糖' },
   no_sugar_100:     { name:'純淨傳說',  desc:'戒含糖飲料習慣連續達成 100 天',   icon:'trophy',  cat:'habit', trigger:'習慣名稱含：戒糖、含糖、戒飲料、無糖、戒含糖' },
+  no_junk_7:        { name:'天然覺醒',  desc:'戒超加工食品習慣連續達成 7 天',    icon:'leaf',    cat:'habit', trigger:'習慣名稱含：戒超加工食品、戒垃圾食物、戒加工食品、戒零食' },
+  no_junk_30:       { name:'原型飲食者', desc:'戒超加工食品習慣連續達成 30 天',   icon:'star',    cat:'habit', trigger:'習慣名稱含：戒超加工食品、戒垃圾食物、戒加工食品、戒零食' },
+  no_junk_100:      { name:'無添加傳說', desc:'戒超加工食品習慣連續達成 100 天',  icon:'trophy',  cat:'habit', trigger:'習慣名稱含：戒超加工食品、戒垃圾食物、戒加工食品、戒零食' },
   // food_item (食材成就)
   chicken_30:       { name:'雞肉常客',   desc:'雞肉類食材累計記錄 30 次',        icon:'utensils', cat:'food_item', trigger:'食物名稱含：雞肉、雞胸、雞腿、雞里肌、雞翅、雞柳等' },
   chicken_100:      { name:'雞的殺手',   desc:'雞肉類食材累計記錄 100 次',       icon:'utensils', cat:'food_item', trigger:'食物名稱含：雞肉、雞胸、雞腿、雞里肌、雞翅、雞柳等' },
@@ -232,6 +243,7 @@ const HABIT_KEYWORD_GROUPS = {
   read:     ['閱讀','讀書','看書','reading','read'],
   water:    ['喝水','飲水','補水','water','drink water'],
   no_sugar: ['戒糖','含糖','戒飲料','無糖','no sugar','戒含糖'],
+  no_junk:  ['戒超加工食品','戒超加工','戒垃圾食物','戒垃圾','戒加工食品','戒零食'],
 };
 
 const FOOD_KEYWORD_GROUPS = {
@@ -349,7 +361,24 @@ function setData(key, val) {
 }
 
 function initStorage() {
-  if (!getData('foodDB', null)) setData('foodDB', DEFAULT_FOOD_DB);
+  if (!getData('foodDB', null)) {
+    setData('foodDB', DEFAULT_FOOD_DB);
+    setData('foodDBDefaultsVersion', FOOD_DEFAULTS_VERSION);
+  } else if (getData('foodDBDefaultsVersion', 1) < FOOD_DEFAULTS_VERSION) {
+    // 併入新版預設食材：以「名稱＋狀態」與「id」去重 —— 使用者已有的同名同狀態品項保留、略過我方預設。
+    // 用名稱＋狀態（而非只有名稱）才能同時保留同名的生食／熟食兩筆。
+    // 只在版本提升時跑一次，避免使用者刪掉的預設每次啟動又被加回。
+    const fdb   = getData('foodDB', []);
+    const keyOf = f => f.name + '|' + (f.state || '');
+    const seen  = new Set(fdb.map(keyOf));
+    const ids   = new Set(fdb.map(f => f.id));
+    DEFAULT_FOOD_DB.forEach(def => {
+      if (ids.has(def.id) || seen.has(keyOf(def))) return;
+      fdb.push(def);
+    });
+    setData('foodDB', fdb);
+    setData('foodDBDefaultsVersion', FOOD_DEFAULTS_VERSION);
+  }
   if (!getData('recipes', null)) setData('recipes', []);
   if (!getData('diary', null)) setData('diary', {});
   if (!getData('profile', null)) setData('profile', { name:'冒險者', goals: defaultGoals() });
@@ -1497,33 +1526,185 @@ function renderFoodDB() {
     return;
   }
   container.innerHTML = foods.map(f => {
-    const hasSrv = f.serving && f.serving.unit;
-    const dispData = hasSrv ? f.serving : f.per100g;
-    const dispLabel = hasSrv ? `每${f.serving.unit}` : '每100g';
-    return `
+    try {
+      const hasSrv = f.serving && f.serving.unit;
+      const dispData = (hasSrv ? f.serving : f.per100g) || {};
+      const dispLabel = hasSrv ? `每${f.serving.unit}` : '每100g';
+      const n = v => (v ?? 0);   // 容錯：缺值一律當 0，避免單一壞資料讓整個清單消失
+      return `
     <div class="food-item">
-      <span class="food-state-badge ${stateBadgeClass(f.state)}">${f.state}</span>
+      <span class="food-state-badge ${stateBadgeClass(f.state)}">${f.state || '一般'}</span>
       <div class="food-item-main">
-        <div class="food-item-name">${f.name}</div>
-        <div class="food-item-cat">${f.category} · ${dispLabel}</div>
-        <div class="food-item-macros">
-          <span class="macro-chip kcal">${icon('flame', 12)} ${dispData.calories}kcal</span>
-          <span class="macro-chip">蛋白 ${dispData.protein}g</span>
-          <span class="macro-chip">脂 ${dispData.fat}g</span>
-          <span class="macro-chip">碳 ${dispData.carbs}g</span>
+        <div class="food-item-name-row">
+          <span class="food-item-name">${f.name || '(未命名)'}</span>
+          <span class="food-item-kcal">· ${n(dispData.calories)}kcal</span>
         </div>
+        <div class="food-item-cat">${f.category || '其他'} · ${dispLabel}</div>
+        <div class="food-item-macros">
+          <span class="macro-chip">蛋白 ${n(dispData.protein)}g</span>
+          <span class="macro-chip">脂 ${n(dispData.fat)}g</span>
+          <span class="macro-chip">碳 ${n(dispData.carbs)}g</span>
+          <span class="macro-chip">纖 ${n(dispData.fiber)}g</span>
+        </div>
+        ${f.note ? `<div class="food-item-note">${icon('info', 11)} ${f.note}</div>` : ''}
       </div>
       <div class="food-item-actions">
         <button class="icon-btn edit" onclick="openEditFoodForm('${f.id}')" title="編輯">${icon('pen-left', 15)}</button>
         <button class="icon-btn delete" onclick="deleteFoodConfirm('${f.id}')" title="刪除">${icon('trash-2', 15)}</button>
       </div>
     </div>`;
+    } catch (err) {
+      return '';   // 跳過壞掉的單筆，不讓整個清單空白
+    }
   }).join('');
 }
 
 function searchFoodDB(q) {
   state.currentFoodSearch = q.toLowerCase();
   renderFoodDB();
+}
+
+// ===== FOOD USAGE STATS (podium) =====
+// 食譜與食材一起排名，但以「名稱 + 類型」為 key，所以食譜的烤雞腿與食材的烤雞腿分開計。
+// 食譜不展開其食材（食譜算一個單位）。每個品項顯示其類別（食譜 / 生食 / 熟食 / 超加工食品…）。
+function openFoodStats() {
+  const diary  = getData('diary', {});
+  const foodDB = getData('foodDB', []);
+  const foodByName = {};
+  foodDB.forEach(f => { if (!foodByName[f.name]) foodByName[f.name] = f; });
+  const kindOf = e => {
+    if (e.source === 'recipe' || e.recipeId) return '食譜';
+    const f = foodByName[e.name];
+    return f ? f.state : '自訂';
+  };
+
+  const counts = {};
+  Object.values(diary).forEach(day => (day || []).forEach(e => {
+    const name = (e.name || '').trim(); if (!name) return;
+    const kind = kindOf(e);
+    const key = name + '' + kind;
+    if (!counts[key]) counts[key] = { name, kind, count: 0 };
+    counts[key].count++;
+  }));
+  const ranked = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 10);
+
+  const ov = document.createElement('div');
+  ov.id = 'foodstats-overlay';
+  ov.className = 'ach-manage-overlay';
+  let body;
+  if (!ranked.length) {
+    body = `<div class="amg-empty">還沒有足夠的紀錄，先去記錄幾餐吧！</div>`;
+  } else {
+    const top3 = ranked.slice(0, 3);
+    const order = [1, 0, 2]; // 頒獎台顯示順序：第2、第1、第3
+    const podium = `<div class="podium">${order.map(i => {
+      const it = top3[i]; if (!it) return `<div class="podium-col empty"></div>`;
+      const rank = i + 1;
+      return `<div class="podium-col rank${rank}">
+        <div class="podium-name">${it.name}</div>
+        <div class="podium-kind">${it.kind}</div>
+        <div class="podium-block">
+          <div class="podium-rank">${rank}</div>
+          <div class="podium-count">${it.count} 次</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+    const rest = ranked.slice(3);
+    const list = rest.length ? `<div class="rank-list">${rest.map((it, idx) => `
+      <div class="rank-row">
+        <div class="rank-no">${idx + 4}</div>
+        <div class="rank-main">
+          <div class="rank-name">${it.name}</div>
+          <div class="rank-kind">${it.kind}</div>
+        </div>
+        <div class="rank-count">${it.count} 次</div>
+      </div>`).join('')}</div>` : '';
+    body = podium + list;
+  }
+
+  ov.innerHTML = `
+    <div class="amg-header">
+      <div class="amg-title">使用排行</div>
+      <button class="td-close" onclick="closeFoodStats()">✕</button>
+    </div>
+    <div class="amg-sub">依飲食日誌被記錄的次數排名。食譜與食材分開計（食譜不拆算其中食材）。</div>
+    <div class="foodstats-body">${body}</div>`;
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+}
+function closeFoodStats() {
+  document.getElementById('foodstats-overlay')?.remove();
+  document.body.style.overflow = '';
+}
+
+// ===== WORKOUT SEARCH (past records of a specific exercise) =====
+let _woSearchLimit = 10;
+function openWorkoutSearch() {
+  _woSearchLimit = 10;
+  const ov = document.createElement('div');
+  ov.id = 'wo-search-overlay';
+  ov.className = 'ach-manage-overlay';
+  ov.innerHTML = `
+    <div class="amg-header">
+      <div class="amg-title">搜尋運動紀錄</div>
+      <button class="td-close" onclick="closeWorkoutSearch()">✕</button>
+    </div>
+    <div class="amg-sub">輸入運動項目（如「慢跑」「深蹲」），列出過往紀錄，方便比對上次的強度。</div>
+    <input type="text" id="wo-search-input" class="search-input" placeholder="輸入運動項目名稱…" oninput="renderWorkoutSearch()" style="margin-top:12px">
+    <div class="wo-search-results" id="wo-search-results"></div>`;
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('wo-search-input')?.focus(), 150);
+  renderWorkoutSearch();
+}
+function closeWorkoutSearch() {
+  document.getElementById('wo-search-overlay')?.remove();
+  document.body.style.overflow = '';
+}
+function _woShowMore() { _woSearchLimit += 10; renderWorkoutSearch(); }
+function renderWorkoutSearch() {
+  const el = document.getElementById('wo-search-results'); if (!el) return;
+  const q = (document.getElementById('wo-search-input')?.value || '').trim().toLowerCase();
+  if (!q) { el.innerHTML = `<div class="wo-search-hint">輸入名稱開始搜尋</div>`; return; }
+  const log = getData('workoutLog', []).slice()
+    .sort((a, b) => (a.date + (a.createdAt || '')) < (b.date + (b.createdAt || '')) ? 1 : -1); // newest first
+  const matches = log.filter(e => e.type === 'cardio'
+    ? (e.exercise || '').toLowerCase().includes(q)
+    : (e.blocks || []).some(b => (b.name || '').toLowerCase().includes(q)));
+  if (!matches.length) { el.innerHTML = `<div class="wo-search-hint">找不到「${q}」的紀錄</div>`; return; }
+
+  const fmtSet = r => {
+    const p = [];
+    if (r.weight != null) p.push(`${r.weight}kg`);
+    if (r.reps != null) p.push(`${r.reps}次`);
+    if (r.sets != null) p.push(`${r.sets}組`);
+    return p.join(' × ');
+  };
+  const shown = matches.slice(0, _woSearchLimit);
+  el.innerHTML = shown.map(e => {
+    const dow = ['日','一','二','三','四','五','六'][new Date(e.date + 'T00:00:00').getDay()];
+    let detail;
+    if (e.type === 'cardio') {
+      const rows = [
+        e.duration ? `時間 ${e.duration} 分鐘` : '',
+        e.distance ? `距離 ${e.distance} km` : '',
+        e.intensity ? `強度 ${e.intensity}` : '',
+      ].filter(Boolean);
+      detail = `<div class="wo-res-tag cardio">有氧</div><div class="wo-res-title">${e.exercise || '有氧運動'}</div>
+        ${rows.map(r => `<div class="wo-res-line">${r}</div>`).join('')}`;
+    } else {
+      const blocks = (e.blocks || []).filter(b => (b.name || '').toLowerCase().includes(q));
+      detail = `<div class="wo-res-tag strength">無氧</div>` + blocks.map(b => {
+        const sets = Array.isArray(b.rows) ? b.rows : [{ weight: b.weight, reps: b.reps, sets: b.sets }];
+        return `<div class="wo-res-title">${b.name}</div>` +
+          sets.map(r => `<div class="wo-res-line">${fmtSet(r)}</div>`).join('');
+      }).join('');
+    }
+    const note = e.note ? `<div class="wo-res-note">備註：${e.note}</div>` : '';
+    return `<div class="wo-res-card"><div class="wo-res-date">${e.date}（${dow}）</div>${detail}${note}</div>`;
+  }).join('') + (matches.length > _woSearchLimit
+    ? `<button class="wo-more-btn" onclick="_woShowMore()">顯示更多（還有 ${matches.length - _woSearchLimit} 筆）</button>`
+    : '');
 }
 
 function filterFoodByCategory(cat, btn) {
@@ -1542,6 +1723,7 @@ function openAddFoodForm() {
   ['food-calories','food-protein','food-fat','food-carbs','food-fiber'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('food-serving-unit').value = '';
   ['food-sv-calories','food-sv-protein','food-sv-fat','food-sv-carbs','food-sv-fiber'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('food-note').value = '';
   openBottomSheet('sheet-food');
 }
 
@@ -1565,6 +1747,7 @@ function openEditFoodForm(foodId) {
   document.getElementById('food-sv-fat').value        = sv.fat      ?? '';
   document.getElementById('food-sv-carbs').value      = sv.carbs    ?? '';
   document.getElementById('food-sv-fiber').value      = sv.fiber    ?? '';
+  document.getElementById('food-note').value          = food.note   || '';
   openBottomSheet('sheet-food');
 }
 
@@ -1581,6 +1764,7 @@ function saveFoodForm() {
     carbs:    parseFloat(document.getElementById('food-sv-carbs').value)    || 0,
     fiber:    parseFloat(document.getElementById('food-sv-fiber').value)    || 0,
   } : null;
+  const note = document.getElementById('food-note').value.trim();
   const food = {
     id, name,
     state:    document.getElementById('food-state').value,
@@ -1592,7 +1776,8 @@ function saveFoodForm() {
       carbs:    parseFloat(document.getElementById('food-carbs').value)    || 0,
       fiber:    parseFloat(document.getElementById('food-fiber').value)    || 0,
     },
-    ...(serving && { serving })
+    ...(serving && { serving }),
+    ...(note && { note })
   };
   const db = getData('foodDB', []);
   const idx = db.findIndex(f => f.id === id);
@@ -1705,10 +1890,91 @@ function setDiaryDate(ds) {
   if (ds) { state.currentDate = ds; renderDiary(); }
 }
 
+// Custom month calendar: jump to a day, "回到今天", and per-day calorie dots
+// (紅=超過熱量目標、綠=在目標內).
+let _calView = null; // { y, m } — m is 0-based
+
 function openDatePicker() {
-  const input = document.getElementById('diary-date-input');
-  input.value = state.currentDate;
-  input.showPicker ? input.showPicker() : input.click();
+  const [y, m] = state.currentDate.split('-').map(Number);
+  _calView = { y, m: m - 1 };
+  if (!document.getElementById('cal-overlay')) {
+    const ov = document.createElement('div');
+    ov.id = 'cal-overlay';
+    ov.className = 'cal-overlay';
+    ov.onclick = e => { if (e.target === ov) closeDatePicker(); };
+    document.body.appendChild(ov);
+  }
+  document.body.style.overflow = 'hidden';
+  _renderCalendar();
+}
+
+function closeDatePicker() {
+  document.getElementById('cal-overlay')?.remove();
+  document.body.style.overflow = '';
+}
+
+function _calNav(delta) {
+  let { y, m } = _calView;
+  m += delta;
+  if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+  _calView = { y, m };
+  _renderCalendar();
+}
+
+function _calGoToday() {
+  state.currentDate = todayStr();
+  renderDiary();
+  closeDatePicker();
+}
+
+function _calSelectDay(ds) {
+  state.currentDate = ds;
+  renderDiary();
+  closeDatePicker();
+}
+
+function _renderCalendar() {
+  const ov = document.getElementById('cal-overlay'); if (!ov) return;
+  const { y, m } = _calView;
+  const diary = getData('diary', {});
+  const goal = ((getData('profile', {}).goals || defaultGoals()).calories) || 0;
+  const today = todayStr();
+  const pad2 = n => String(n).padStart(2, '0');
+  const startDow = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  const dotFor = ds => {
+    if (!(diary[ds] || []).length || goal <= 0) return 'none';
+    const cal = getDailyTotals(ds).calories;
+    if (cal <= 0) return 'none';
+    return cal > goal ? 'red' : 'green';
+  };
+
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += `<div class="cal-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${pad2(m + 1)}-${pad2(d)}`;
+    const future = ds > today, isToday = ds === today, sel = ds === state.currentDate;
+    cells += `<button class="cal-cell${isToday ? ' today' : ''}${sel ? ' selected' : ''}${future ? ' future' : ''}"
+      ${future ? 'disabled' : `onclick="_calSelectDay('${ds}')"`}>
+      <span class="cal-num">${d}</span>
+      <span class="cal-dot ${future ? 'none' : dotFor(ds)}"></span>
+    </button>`;
+  }
+
+  ov.innerHTML = `
+    <div class="cal-box" onclick="event.stopPropagation()">
+      <button class="cal-close" onclick="closeDatePicker()">✕</button>
+      <div class="cal-head">
+        <button class="cal-nav" onclick="_calNav(-1)">‹</button>
+        <div class="cal-title">${y}年${m + 1}月</div>
+        <button class="cal-nav" onclick="_calNav(1)">›</button>
+      </div>
+      <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+      <div class="cal-grid">${cells}</div>
+      <div class="cal-legend"><span class="cal-dot green"></span>目標內　<span class="cal-dot red"></span>超標</div>
+      <button class="cal-today-btn" onclick="_calGoToday()">回到今天</button>
+    </div>`;
 }
 
 function getFrequentFoods() {
@@ -3194,6 +3460,15 @@ function _getSystemNotifications() {
       body: '目前無法取得最新地球Online每日任務，已從任務庫隨機抽取任務替代。任務獎勵正常計算。'
     });
   }
+  (typeof SYSTEM_UPDATES !== 'undefined' ? SYSTEM_UPDATES : []).forEach(u => {
+    const feats = u.features || u.items || [];
+    const fixes = u.fixes || [];
+    const sect = (label, arr) => arr.length
+      ? `<div class="notif-upd-head">${label}</div>` + arr.map(it => '・' + it).join('<br>')
+      : '';
+    const body = [sect('✨ 功能新增', feats), sect('🔧 Bug 修復', fixes)].filter(Boolean).join('<br>');
+    notifs.push({ id: 'sysupd_' + u.version, section: '系統更新', type: 'update', title: u.title, body });
+  });
   const lastExport = getData('lastExportDate', null);
   const lastBackupReminder = getData('lastBackupReminderAt', null);
   if ((!lastExport || _daysSince(lastExport) >= 14) && (!lastBackupReminder || _daysSince(lastBackupReminder) >= 14)) {
@@ -3212,6 +3487,7 @@ function _notifSectionClass(section) {
   if (section === '通知') return 'info';
   if (section === '警告') return 'warn';
   if (section === '錯誤') return 'danger';
+  if (section === '系統更新') return 'update';
   return 'ok';
 }
 
@@ -3219,6 +3495,7 @@ function _notifIconName(type) {
   if (type === 'danger') return 'alert-circle';
   if (type === 'warn')   return 'alert-triangle';
   if (type === 'info')   return 'info';
+  if (type === 'update') return 'star';
   return 'check-circle';
 }
 
@@ -3235,6 +3512,7 @@ function _ackCurrentNotifications() {
   if (sys.some(n => n.id === 'backupReminder'))  setData('lastBackupReminderAt', todayStr());
   if (sys.some(n => n.id === 'archiveFallback')) acked.archiveFallback = true;
   if (computeNotifications().some(n => n.type !== 'ok')) acked.weeklyHealthWeek = _currentWeekStr();
+  if (typeof SYSTEM_UPDATES !== 'undefined' && SYSTEM_UPDATES[0]) acked.lastSeenUpdate = SYSTEM_UPDATES[0].version;
   setData('notifAcked', acked);
 }
 
@@ -3245,7 +3523,9 @@ function _hasBadge() {
   const backupInSys    = sys.some(n => n.id === 'backupReminder');
   const archiveUnacked = sys.some(n => n.id === 'archiveFallback') && !acked.archiveFallback;
   const healthUnacked  = computeNotifications().some(n => n.type !== 'ok') && acked.weeklyHealthWeek !== _currentWeekStr();
-  return backupInSys || archiveUnacked || healthUnacked;
+  const latestUpd      = (typeof SYSTEM_UPDATES !== 'undefined' && SYSTEM_UPDATES[0]) ? SYSTEM_UPDATES[0].version : null;
+  const updateUnseen   = latestUpd && acked.lastSeenUpdate !== latestUpd;
+  return backupInSys || archiveUnacked || healthUnacked || updateUnseen;
 }
 
 function _recordNotifShown() {
@@ -4665,6 +4945,7 @@ function _recheckHabitAchievements(gd) {
     'read_7','read_30','read_100',
     'water_7','water_30',
     'no_sugar_7','no_sugar_30','no_sugar_100',
+    'no_junk_7','no_junk_30','no_junk_100',
     'streak_habit_combo',
   ];
   const allHabits = getData('habits', []);
@@ -4676,7 +4957,7 @@ function _recheckHabitAchievements(gd) {
     return allHabits.filter(h => kws.some(kw => h.name.includes(kw)))
       .reduce((mx, h) => Math.max(mx, calcHabitStreak(h)), 0);
   }
-  const readS  = gs('read'), waterS = gs('water'), sugarS = gs('no_sugar');
+  const readS  = gs('read'), waterS = gs('water'), sugarS = gs('no_sugar'), junkS = gs('no_junk');
   const dStreak = _calcDiaryStreak(getData('diary', {}));
 
   const stillValid = new Set();
@@ -4692,6 +4973,9 @@ function _recheckHabitAchievements(gd) {
   if (sugarS >= 7)   stillValid.add('no_sugar_7');
   if (sugarS >= 30)  stillValid.add('no_sugar_30');
   if (sugarS >= 100) stillValid.add('no_sugar_100');
+  if (junkS >= 7)    stillValid.add('no_junk_7');
+  if (junkS >= 30)   stillValid.add('no_junk_30');
+  if (junkS >= 100)  stillValid.add('no_junk_100');
   if (dStreak >= 30 && maxS >= 30) stillValid.add('streak_habit_combo');
 
   habitAchIds.forEach(id => {
@@ -5094,6 +5378,7 @@ function saveWeightLog() {
 }
 
 function checkDailyWeightPrompt() {
+  if (getData('askWeightDaily', true) === false) return;   // 使用者可在設定關閉
   const today = todayStr();
   const wLog = getData('weightLog', {});
   if (wLog[today] != null) return;
@@ -6334,10 +6619,20 @@ function _runAchievementChecks(gd) {
   if (uniqueFoods >= 15) tryU('variety_15');
   if (uniqueFoods >= 30) tryU('variety_30');
 
-  // FOOD INGREDIENT counts
+  // FOOD INGREDIENT counts — a recipe-sourced entry also counts its ingredients,
+  // so eating a recipe containing 雞腿 counts toward 雞肉常客 even if the recipe
+  // name has no chicken keyword.
+  const _recipeById = {};
+  recipes.forEach(r => { _recipeById[r.id] = r; });
+  const _entryFoodNames = e => {
+    const names = [e.name || ''];
+    const rc = e.recipeId && _recipeById[e.recipeId];
+    if (rc) (rc.ingredients || []).forEach(i => names.push(i.name || ''));
+    return names;
+  };
   function countFoodKw(group) {
     const kws = FOOD_KEYWORD_GROUPS[group];
-    return allEntries.filter(e => kws.some(kw => (e.name || '').includes(kw))).length;
+    return allEntries.filter(e => _entryFoodNames(e).some(nm => kws.some(kw => nm.includes(kw)))).length;
   }
   const chickenN = countFoodKw('chicken');
   if (chickenN >= 30)  tryU('chicken_30');
@@ -6590,6 +6885,11 @@ function _runHabitAchievementChecks(gd) {
   if (sugarStreak >= 30)  tryU('no_sugar_30');
   if (sugarStreak >= 100) tryU('no_sugar_100');
 
+  const junkStreak = groupStreak('no_junk');
+  if (junkStreak >= 7)   tryU('no_junk_7');
+  if (junkStreak >= 30)  tryU('no_junk_30');
+  if (junkStreak >= 100) tryU('no_junk_100');
+
   return newAch;
 }
 
@@ -6679,6 +6979,56 @@ function toggleAchSection(key) {
   if (sec) sec.classList.toggle('collapsed', _achCollapsed[key]);
 }
 
+// Progress (current / target) for count- and streak-based achievements, so a card
+// can reveal「已記錄 X / N」on tap. Non-progress achievements (booleans) are omitted.
+function _achProgressMap(gd) {
+  const diary = getData('diary', {});
+  const wLog  = getData('workoutLog', []);
+  const recipes = getData('recipes', []);
+  const allEntries = Object.values(diary).flat();
+  const diaryDays = Object.keys(diary).filter(ds => (diary[ds] || []).length > 0).length;
+  const uniqueFoods = new Set(allEntries.map(e => e.name)).size;
+  const _rid = {}; recipes.forEach(r => { _rid[r.id] = r; });
+  const _names = e => { const ns = [e.name || '']; const rc = e.recipeId && _rid[e.recipeId]; if (rc) (rc.ingredients || []).forEach(i => ns.push(i.name || '')); return ns; };
+  const kw = g => { const kws = FOOD_KEYWORD_GROUPS[g]; return allEntries.filter(e => _names(e).some(nm => kws.some(k => nm.includes(k)))).length; };
+  const cardioN = wLog.filter(e => e.type === 'cardio').length;
+  const strengthN = wLog.filter(e => e.type === 'strength').length;
+  const maxDiaryRun = _longestDayRun(new Set(Object.keys(diary).filter(ds => (diary[ds] || []).length > 0)));
+  const maxWorkoutRun = _longestDayRun(new Set(wLog.map(e => e.date)));
+  const habits = getData('habits', []); const hlog = getData('habitLog', {});
+  const maxHS = habits.reduce((m, h) => Math.max(m, _maxHabitStreak(h.id, hlog)), 0);
+  const grp = key => { const kws = HABIT_KEYWORD_GROUPS[key]; return habits.filter(h => kws.some(k => h.name.includes(k))).reduce((m, h) => Math.max(m, _maxHabitStreak(h.id, hlog)), 0); };
+  const qDone = getData('dailyQuestsDone', {});
+  const mainDoneDays = Object.keys(qDone).filter(d => qDone[d].main?.length > 0 && qDone[d].main.every(Boolean)).length;
+  const gold = gd.gold || 0, level = gd.level || 1;
+
+  const T = {};
+  const s = (id, cur, target) => { T[id] = { cur, target }; };
+  s('recipe_10', recipes.length, 10); s('recipe_30', recipes.length, 30);
+  s('meal_10', diaryDays, 10); s('meal_30', diaryDays, 30); s('diary_50', diaryDays, 50); s('diary_100', diaryDays, 100); s('diary_365', diaryDays, 365);
+  s('variety_5', uniqueFoods, 5); s('variety_15', uniqueFoods, 15); s('variety_30', uniqueFoods, 30);
+  s('chicken_30', kw('chicken'), 30); s('chicken_100', kw('chicken'), 100);
+  s('beef_30', kw('beef'), 30); s('beef_80', kw('beef'), 80);
+  s('pork_30', kw('pork'), 30); s('pork_80', kw('pork'), 80);
+  s('egg_50', kw('egg'), 50); s('egg_150', kw('egg'), 150);
+  s('fish_30', kw('fish'), 30); s('fish_100', kw('fish'), 100);
+  s('broccoli_30', kw('broccoli'), 30); s('sweet_potato_30', kw('sweet_potato'), 30);
+  s('tofu_30', kw('tofu'), 30); s('avocado_20', kw('avocado'), 20); s('oat_60', kw('oat'), 60);
+  s('cardio_10', cardioN, 10); s('cardio_30', cardioN, 30); s('strength_10', strengthN, 10); s('strength_30', strengthN, 30);
+  s('workout_30_total', wLog.length, 30); s('workout_100_total', wLog.length, 100);
+  s('streak_3', maxDiaryRun, 3); s('streak_7', maxDiaryRun, 7); s('streak_14', maxDiaryRun, 14); s('streak_30', maxDiaryRun, 30); s('streak_100', maxDiaryRun, 100); s('streak_200', maxDiaryRun, 200); s('streak_365', maxDiaryRun, 365);
+  s('workout_streak_7', maxWorkoutRun, 7); s('workout_streak_30', maxWorkoutRun, 30);
+  s('habit_streak_7', maxHS, 7); s('habit_streak_30', maxHS, 30); s('habit_streak_100', maxHS, 100);
+  s('read_7', grp('read'), 7); s('read_30', grp('read'), 30); s('read_100', grp('read'), 100);
+  s('water_7', grp('water'), 7); s('water_30', grp('water'), 30);
+  s('no_sugar_7', grp('no_sugar'), 7); s('no_sugar_30', grp('no_sugar'), 30); s('no_sugar_100', grp('no_sugar'), 100);
+  s('no_junk_7', grp('no_junk'), 7); s('no_junk_30', grp('no_junk'), 30); s('no_junk_100', grp('no_junk'), 100);
+  s('level_3', level, 3); s('level_5', level, 5); s('level_10', level, 10); s('max_level', level, 15);
+  s('gold_500', gold, 500); s('gold_2000', gold, 2000); s('gold_5000', gold, 5000); s('gold_10000', gold, 10000); s('gold_50000', gold, 50000);
+  s('quest_100', mainDoneDays, 100);
+  return T;
+}
+
 function renderAchievements() {
   const q       = (document.getElementById('ach-search-q')?.value || '').trim().toLowerCase();
   const gd      = getGameData();
@@ -6700,6 +7050,8 @@ function renderAchievements() {
   // Build achievement-id → title lookup
   const titleByAch = {};
   TITLES_DEF.forEach(t => { if (t.unlock !== 'default') titleByAch[t.unlock] = t.id; });
+
+  const progMap = _achProgressMap(gd);
 
   const gridHtml = cats.map(cat => {
     const items = Object.entries(ACHIEVEMENTS_DEF).filter(([, d]) => {
@@ -6731,6 +7083,14 @@ function renderAchievements() {
               const achDateStr = done && (gd.achievementDates || {})[id]
                 ? `<div class="ach-date-tag">${icon('calendar', 9)} ${(gd.achievementDates)[id]}</div>`
                 : '';
+              const p = (!isHidden && progMap[id]) ? progMap[id] : null;
+              const showProg = p && !done;   // 未解鎖且有進度資料 → 永遠顯示進度條（不可點、維持灰）
+              const pct = showProg ? Math.min(100, Math.round((p.cur / p.target) * 100)) : 0;
+              const progHtml = showProg ? `
+                <div class="ach-progress">
+                  <div class="ach-progress-track"><div class="ach-progress-fill" style="width:${pct}%"></div></div>
+                  <span class="ach-progress-count">${p.cur}/${p.target}</span>
+                </div>` : '';
               return `
                 <div class="ach-card ${done ? 'done' : 'locked'}">
                   <div class="ach-icon-wrap ${done ? 'done' : ''}">${icon(isHidden ? 'award' : def.icon, 20)}</div>
@@ -6738,6 +7098,7 @@ function renderAchievements() {
                     <div class="ach-card-name">${isHidden ? '???' : def.name}</div>
                     <div class="ach-card-desc">${isHidden ? (def.hint || '解鎖後揭曉') : def.desc}</div>
                     ${triggerTag}${titleTag}${achDateStr}
+                    ${progHtml}
                   </div>
                   ${done ? `<div class="ach-done-mark">${icon('star', 11)}</div>` : ''}
                 </div>`;
@@ -6847,9 +7208,18 @@ function _computeValidAchievements(gd) {
   if (uniqueFoods >= 15) add('variety_15');
   if (uniqueFoods >= 30) add('variety_30');
 
+  // recipe-sourced entries also count their ingredient names (see _runAchievementChecks)
+  const _recipeById = {};
+  recipes.forEach(r => { _recipeById[r.id] = r; });
+  const _entryFoodNames = e => {
+    const names = [e.name || ''];
+    const rc = e.recipeId && _recipeById[e.recipeId];
+    if (rc) (rc.ingredients || []).forEach(i => names.push(i.name || ''));
+    return names;
+  };
   const countFoodKw = group => {
     const kws = FOOD_KEYWORD_GROUPS[group];
-    return allEntries.filter(e => kws.some(kw => (e.name || '').includes(kw))).length;
+    return allEntries.filter(e => _entryFoodNames(e).some(nm => kws.some(kw => nm.includes(kw)))).length;
   };
   if (countFoodKw('chicken') >= 30)  add('chicken_30');
   if (countFoodKw('chicken') >= 100) add('chicken_100');
@@ -6987,7 +7357,7 @@ function _computeValidAchievements(gd) {
     const kws = HABIT_KEYWORD_GROUPS[key];
     return allHabits.filter(h => kws.some(kw => h.name.includes(kw))).reduce((mx, h) => Math.max(mx, _maxHabitStreak(h.id, habitLog)), 0);
   };
-  const readS = grpS('read'), waterS = grpS('water'), sugarS = grpS('no_sugar');
+  const readS = grpS('read'), waterS = grpS('water'), sugarS = grpS('no_sugar'), junkS = grpS('no_junk');
   if (readS >= 7)   add('read_7');
   if (readS >= 30)  add('read_30');
   if (readS >= 100) add('read_100');
@@ -6996,6 +7366,9 @@ function _computeValidAchievements(gd) {
   if (sugarS >= 7)   add('no_sugar_7');
   if (sugarS >= 30)  add('no_sugar_30');
   if (sugarS >= 100) add('no_sugar_100');
+  if (junkS >= 7)    add('no_junk_7');
+  if (junkS >= 30)   add('no_junk_30');
+  if (junkS >= 100)  add('no_junk_100');
   if (maxDiaryRun >= 30 && maxHS >= 30) add('streak_habit_combo');
 
   return valid;
