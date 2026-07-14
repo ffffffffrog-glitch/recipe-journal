@@ -63,8 +63,8 @@ const DEFAULT_FOOD_DB = [
   { id:'f053', name:'藍莓', state:'生食', category:'水果', per100g:{ calories:57, protein:0.7, fat:0.3, carbs:14.5, fiber:2.4 } },
   // === 其他 ===
   { id:'f054', name:'豆漿（無糖）', state:'飲品', category:'其他', per100g:{ calories:33, protein:3.0, fat:1.8, carbs:1.8, fiber:0.3 } },
-  { id:'f055', name:'味噌', state:'加工品', category:'其他', per100g:{ calories:199, protein:11.7, fat:6.0, carbs:26.5, fiber:5.4 } },
-  { id:'f056', name:'蜂蜜', state:'加工品', category:'其他', per100g:{ calories:304, protein:0.3, fat:0, carbs:82.4, fiber:0.2 } },
+  { id:'f055', name:'味噌', state:'加工品', category:'調味料', per100g:{ calories:199, protein:11.7, fat:6.0, carbs:26.5, fiber:5.4 } },
+  { id:'f056', name:'蜂蜜', state:'加工品', category:'調味料', per100g:{ calories:304, protein:0.3, fat:0, carbs:82.4, fiber:0.2 } },
   // === 新增預設（v2）===
   { id:'f057', name:'燒鴨', state:'熟食', category:'肉類', per100g:{ calories:290, protein:22, fat:22, carbs:1.1, fiber:0 } },
   { id:'f058', name:'牛五花', state:'生食', category:'肉類', per100g:{ calories:430, protein:15.7, fat:40.3, carbs:0, fiber:0 } },
@@ -115,10 +115,14 @@ const DEFAULT_FOOD_DB = [
 
 // 每次擴充 DEFAULT_FOOD_DB 就 +1；initStorage 會把新的預設併入既有使用者的食物庫
 // （同名者略過，以使用者手動新增的為準）。
-const FOOD_DEFAULTS_VERSION = 5;
+const FOOD_DEFAULTS_VERSION = 6;
+
+// 升級時「只」對這幾筆預設強制同步分類（修正曾經分錯類的品項）；
+// 其餘一律保留使用者自己的分類編輯，不覆蓋。
+const CATEGORY_FIX_IDS = ['f055', 'f056', 'f096', 'f098'];
 
 // 顯示在「設定」最上方的版本 / 最後更新日期（每次部署時一起更新）
-const APP_VERSION = 'v38';
+const APP_VERSION = 'v39';
 const APP_UPDATED = '2026/07/14';
 
 // 系統更新公告（顯示在通知中心「系統更新」）。最新的放最前面。

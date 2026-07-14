@@ -377,9 +377,13 @@ function initStorage() {
     const byId  = {}; fdb.forEach(f => { byId[f.id] = f; });
     const keyOf = f => f.name + '|' + (f.state || '');
     const seen  = new Set(fdb.map(keyOf));
+    const fixIds = (typeof CATEGORY_FIX_IDS !== 'undefined') ? CATEGORY_FIX_IDS : [];
     DEFAULT_FOOD_DB.forEach(def => {
       if (byId[def.id]) {
-        if (byId[def.id].category !== def.category) byId[def.id].category = def.category;
+        // 只修正明確在名單內、曾分錯類的少數品項；其餘保留使用者的分類編輯
+        if (fixIds.includes(def.id) && byId[def.id].category !== def.category) {
+          byId[def.id].category = def.category;
+        }
         return;
       }
       if (seen.has(keyOf(def))) return;
