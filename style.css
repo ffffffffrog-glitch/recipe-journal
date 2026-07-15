@@ -3431,6 +3431,10 @@ body.storage-error .page { padding-top: 44px; }
 /* ════════════ 運動 / 習慣 / 任務 / 成就 ════════════ */
 @media (min-width: 1024px) {
   /* 運動：時間軸卡片 + 右側統計欄（#desktop-rp） */
+  /* 搜尋鈕改回一般流排，避免壓到左對齊的標題 */
+  #page-workout .page-header { gap: 10px; }
+  #page-workout .workout-search-btn { position: static; order: -1; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: var(--text-2); flex-shrink: 0; }
+  #page-workout .workout-search-btn:hover { color: var(--sage); border-color: var(--sage); }
   #page-workout .workout-chat { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 24px 44px; display: block; }
   .wtl-day { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--text-2); margin: 18px 2px 10px; }
   .wtl-day:first-child { margin-top: 0; }
@@ -3500,10 +3504,16 @@ body.storage-error .page { padding-top: 44px; }
   #page-inbody .quick-weight-card,
   #page-inbody .weight-7d-card { margin: 0; }
   #page-inbody .record-carousel-wrap { margin-top: 14px; }
+  /* 完整組成紀錄卡：限寬置中、雷達圖縮到合理尺寸，避免一張超大 */
+  #page-inbody .inbody-record-card { max-width: 620px; margin: 0 auto; }
+  #page-inbody .inbody-bodymap-wrap { max-width: 380px; margin: 14px auto 0; }
 }
 
-/* ════════════ 超寬螢幕：內容置中、不擠一角也不過度拉伸 ════════════ */
+/* ════════════ 超寬螢幕：標題列與頁面滿版，內部內容各自置中 ════════════ */
 @media (min-width: 1800px) {
-  .page-container { max-width: 1680px; margin-left: auto; margin-right: auto; }
+  /* 讓填滿型頁面（日誌/食譜/成就/任務/運動）的內容不要過度拉伸，於頁內置中 */
+  #page-diary #diary-entries { max-width: 1100px; }
+  #page-quests #quest-content { max-width: 1040px; }
+  #achievements-content { max-width: 1120px; }
 }
 

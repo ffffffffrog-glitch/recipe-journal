@@ -6188,7 +6188,7 @@ function buildInbodyCard(rec) {
         </div>
       </div>
       ${hasSeg ? `
-      <div style="margin-top:10px">
+      <div class="inbody-bodymap-wrap" style="margin-top:10px">
         <div style="font-size:.75rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">部位肌肉分析</div>
         <canvas id="rec-bodymap-${rec.id}" style="display:block;width:100%"></canvas>
       </div>` : ''}
