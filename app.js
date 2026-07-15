@@ -749,6 +749,26 @@ function onPageEnter(pageId) {
   if (pageId === 'settings')      { renderThemePicker(); renderSettings(); }
   if (window.innerWidth >= 1024) updateSidebarPlayer();
   updateDesktopRightPanel(pageId);
+  _updateAppFab(pageId);
+}
+
+// 全域浮動新增鈕：放在頁面轉場容器之外，避免被 flip 動畫拖曳（會先上飄再歸位）
+const FAB_ACTIONS = {
+  recipes: 'openNewRecipeForm', fooddb: 'openAddFoodForm', diary: 'openAddDiaryEntrySheet',
+  workout: 'openNewWorkoutForm', habits: 'openAddHabitSheet',
+};
+function _updateAppFab(pageId) {
+  const fab = document.getElementById('app-fab');
+  if (!fab) return;
+  const act = FAB_ACTIONS[pageId];
+  if (!act || window.innerWidth >= 1024) { fab.style.display = 'none'; return; }  // 桌機用頁首按鈕
+  fab.style.display = 'flex';
+  fab.dataset.action = act;
+  fab.title = fab.getAttribute('data-title-' + pageId) || '新增';
+}
+function _appFabClick() {
+  const a = document.getElementById('app-fab')?.dataset.action;
+  if (a && typeof window[a] === 'function') window[a]();
 }
 
 // ===== MODAL & SHEET =====
@@ -2149,10 +2169,13 @@ function quickAddFood(name) {
     meal: getAddMeal(),
     name: src.name,
     amount: src.amount || '',
-    source: 'frequent',
+    // 沿用原始來源（fooddb/recipe/manual），編輯時才能回到正確表單、可依份量重算營養
+    source: src.source || 'manual',
     nutrition: { ...src.nutrition },
     loggedAt: new Date().toISOString()
   };
+  if (src.foodId) entry.foodId = src.foodId;
+  if (src.recipeId) entry.recipeId = src.recipeId;
   const d = getData('diary', {});
   const ds = state.currentDate || todayStr();   // 加到目前檢視的日期，而非永遠今天
   if (!d[ds]) d[ds] = [];

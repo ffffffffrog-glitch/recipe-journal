@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=54">
+  <link rel="stylesheet" href="style.css?v=55">
 </head>
 <body>
 <div id="storage-full-banner">
@@ -27,6 +27,7 @@
     <section id="page-recipes" class="page">
       <div class="page-header recipe-desktop-header">
         <h1 class="page-title">食譜</h1>
+        <button class="header-icon-btn recipe-fooddb-btn" onclick="navigateTo('fooddb')" title="食物庫"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></button>
         <button class="desktop-add-btn recipe-add-btn-header" onclick="openNewRecipeForm()">＋ 新增食譜</button>
       </div>
       <div class="recipe-filter-bar">
@@ -39,7 +40,6 @@
         <div id="recipe-list" class="recipe-grid pb-80"></div>
       </div>
       <div id="recipe-detail-pane" class="recipe-detail-pane"></div>
-      <button class="fab" onclick="openNewRecipeForm()" title="新增食譜">＋</button>
     </section>
 
     <!-- ========== PAGE: 食物庫 (sub-page of 食譜) ========== -->
@@ -74,7 +74,6 @@
         <button class="cat-btn" onclick="filterFoodByCategory('其他',this)">其他</button>
       </div>
       <div id="food-list" class="food-list"></div>
-      <button class="fab" onclick="openAddFoodForm()" title="新增食材">＋</button>
     </section>
 
     <!-- ========== PAGE: 飲食日誌 ========== -->
@@ -93,7 +92,6 @@
       <div id="diary-cal" class="diary-cal-rail"></div>
       <div id="daily-summary" class="daily-summary"></div>
       <div id="diary-entries" class="diary-entries"></div>
-      <button class="fab" onclick="openAddDiaryEntrySheet()" title="新增飲食記錄">＋</button>
     </section>
 
     <!-- ========== PAGE: 個人主頁 ========== -->
@@ -140,7 +138,6 @@
       </div>
       <div id="workout-chat" class="workout-chat"></div>
       <aside id="workout-stats" class="workout-stats-rail"></aside>
-      <button class="fab" onclick="openNewWorkoutForm()" title="新增運動">＋</button>
     </section>
 
     <!-- ========== PAGE: 習慣追蹤 ========== -->
@@ -150,7 +147,6 @@
         <button class="desktop-add-btn" onclick="openAddHabitSheet()">＋ 新增習慣</button>
       </div>
       <div id="habits-content" class="habits-content"></div>
-      <button class="fab" onclick="openAddHabitSheet()" title="新增習慣">＋</button>
     </section>
 
     <!-- ========== PAGE: 習慣詳情 (sub-page of 習慣追蹤) ========== -->
@@ -404,6 +400,10 @@
     <div class="sidebar-player" id="sidebar-player"></div>
   </nav>
   <div id="desktop-rp" class="desktop-rp"></div>
+  <button id="app-fab" class="fab" style="display:none"
+          data-title-recipes="新增食譜" data-title-fooddb="新增食材" data-title-diary="新增飲食記錄"
+          data-title-workout="新增運動" data-title-habits="新增習慣"
+          onclick="_appFabClick()">＋</button>
 </div>
 
 <!-- ========== MODAL: 食譜表單 ========== -->
@@ -799,7 +799,7 @@
 <div id="sheet-workout-form" class="bottom-sheet-overlay" style="display:none" onclick="closeBottomSheet('sheet-workout-form')">
   <div class="bottom-sheet large" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
     <div class="sheet-handle"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div class="sheet-title-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h3 class="sheet-title" id="workout-form-title" style="margin:0">新增運動記錄</h3>
       <button id="workout-delete-btn" class="icon-btn delete" style="display:none" onclick="deleteCurrentWorkout()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
     </div>
@@ -958,7 +958,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="data.js?v=32"></script>
-<script src="app.js?v=56"></script>
+<script src="app.js?v=57"></script>
 <script src="vendor/supabase.js?v=1"></script>
 <script src="sync.js?v=2"></script>
 <script>

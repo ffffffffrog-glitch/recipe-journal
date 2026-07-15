@@ -3829,3 +3829,10 @@ body.storage-error .page { padding-top: 44px; }
   .ibd-hist-nums { font-size: 11px; color: var(--text-2); }
   .ibd-empty-charts { font-size: 12.5px; color: var(--text-3); padding: 20px; text-align: center; }
 }
+
+/* 食譜食物庫入口：手機保留（唯一入口），桌機隱藏（改用側邊欄） */
+@media (min-width: 1024px) { .recipe-fooddb-btn { display: none; } }
+
+/* 表單標題若與動作鈕同排，分隔線改放在整列（避免只有標題文字下方一小截） */
+.sheet-title-row { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.sheet-title-row .sheet-title { border-bottom: none; padding-bottom: 0; }
