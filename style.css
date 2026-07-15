@@ -3348,7 +3348,7 @@ body.storage-error .page { padding-top: 44px; }
 @media (min-width: 1024px) {
   #page-diary.active {
     display: grid;
-    grid-template-columns: 232px 1fr 262px;
+    grid-template-columns: clamp(248px, 20vw, 360px) 1fr clamp(248px, 16vw, 300px);
     grid-template-rows: auto 1fr;
     grid-template-areas: "datenav datenav datenav" "cal entries summary";
     height: 100%;
@@ -3389,7 +3389,8 @@ body.storage-error .page { padding-top: 44px; }
 
   /* center：2×2 餐卡 */
   #page-diary #diary-entries {
-    grid-area: entries; display: grid; grid-template-columns: 1fr 1fr;
+    grid-area: entries; display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 14px; padding: 16px; max-width: none; overflow-y: auto; align-content: start;
   }
   .dmeal-card {
@@ -3430,11 +3431,7 @@ body.storage-error .page { padding-top: 44px; }
 
 /* ════════════ 運動 / 習慣 / 任務 / 成就 ════════════ */
 @media (min-width: 1024px) {
-  /* 運動：時間軸卡片 + 右側統計欄（#desktop-rp） */
-  /* 搜尋鈕改回一般流排，避免壓到左對齊的標題 */
-  #page-workout .page-header { gap: 10px; }
-  #page-workout .workout-search-btn { position: static; order: -1; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: var(--text-2); flex-shrink: 0; }
-  #page-workout .workout-search-btn:hover { color: var(--sage); border-color: var(--sage); }
+  /* 運動：時間軸卡片 + 右側統計欄（#desktop-rp）；標題列排版見下方標題列改版區塊 */
   #page-workout .workout-chat { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 24px 44px; display: block; }
   .wtl-day { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--text-2); margin: 18px 2px 10px; }
   .wtl-day:first-child { margin-top: 0; }
@@ -3498,22 +3495,67 @@ body.storage-error .page { padding-top: 44px; }
 
   /* 設定 / 體組成：置中不撐滿 */
   #page-settings .settings-content { max-width: 720px; margin: 0 auto; }
-  #page-inbody .inbody-page { max-width: 1000px; margin: 0 auto; }
-  #page-inbody .inbody-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
-  #page-inbody .inbody-trends { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  /* 體組成：滿版流體，善用左右空間 */
+  #page-inbody .inbody-page { max-width: none; margin: 0; padding: 6px 28px 44px; }
+  #page-inbody .inbody-top { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 16px; align-items: start; }
+  #page-inbody .inbody-trends { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   #page-inbody .quick-weight-card,
   #page-inbody .weight-7d-card { margin: 0; }
-  #page-inbody .record-carousel-wrap { margin-top: 14px; }
-  /* 完整組成紀錄卡：限寬置中、雷達圖縮到合理尺寸，避免一張超大 */
-  #page-inbody .inbody-record-card { max-width: 620px; margin: 0 auto; }
-  #page-inbody .inbody-bodymap-wrap { max-width: 380px; margin: 14px auto 0; }
+  #page-inbody .inbody-last-time { text-align: left; }
+  /* 完整紀錄：不再是窄輪播，改為填滿的卡片網格（一次看多筆） */
+  #page-inbody .record-carousel-wrap { margin-top: 16px; }
+  #page-inbody .record-carousel {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 16px; overflow: visible; transform: none !important;
+  }
+  #page-inbody .record-slide { width: auto; min-width: 0; flex: none; }
+  #page-inbody .carousel-indicators { display: none; }
+  #page-inbody .inbody-record-card { max-width: none; margin: 0; }
+  #page-inbody .inbody-bodymap-wrap { max-width: 400px; margin: 14px auto 0; }
 }
 
-/* ════════════ 超寬螢幕：標題列與頁面滿版，內部內容各自置中 ════════════ */
+/* ════════════ 超寬螢幕：任務/成就內容置中不過度拉伸（日誌與體組成改走流體） ════════════ */
 @media (min-width: 1800px) {
-  /* 讓填滿型頁面（日誌/食譜/成就/任務/運動）的內容不要過度拉伸，於頁內置中 */
-  #page-diary #diary-entries { max-width: 1100px; }
   #page-quests #quest-content { max-width: 1040px; }
   #achievements-content { max-width: 1120px; }
+}
+
+/* ════════════ 桌機標題列改版：拿掉白底橫條，改大標題 + 副標（寬橫向思考） ════════════ */
+@media (min-width: 1024px) {
+  .page-header {
+    background: transparent;
+    border-bottom: none;
+    position: static;
+    justify-content: flex-start;
+    padding: 26px 30px 10px;
+  }
+  .page-title { font-size: 22px; font-weight: 800; letter-spacing: -.01em; text-align: left; }
+  /* three-col（含返回鍵的子頁）：靠左排，最後一組動作靠右 */
+  .page-header.three-col { justify-content: flex-start; }
+  .page-header.three-col .page-header-side:last-child { margin-left: auto; }
+  .header-back-btn { font-size: 20px; }
+
+  /* 儀表板：拿掉多餘的「個人主頁」白條，問候列本身就是標題 */
+  #page-profile .page-header { display: none; }
+  .dash-greet-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .dash-icon-btn {
+    position: relative; width: 38px; height: 38px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--white); color: var(--text-2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dash-icon-btn:hover { color: var(--sage); border-color: var(--sage); }
+  .dash-icon-btn .notif-dot { position: absolute; top: 8px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--coral); border: 1.5px solid var(--white); }
+
+  /* 運動：標題靠左、搜尋與新增靠右（修正搜尋鈕跑位/重疊） */
+  #page-workout .page-header { gap: 10px; padding-bottom: 14px; }
+  #page-workout .page-title { order: 1; margin-right: auto; }
+  #page-workout .workout-search-btn {
+    order: 2; position: static; transform: none; margin: 0;
+    width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--white); color: var(--text-2);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  #page-workout .workout-search-btn:hover { color: var(--sage); border-color: var(--sage); }
+  #page-workout .desktop-add-btn { order: 3; margin-left: 0; }
 }
 

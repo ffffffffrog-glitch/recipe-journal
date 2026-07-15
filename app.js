@@ -109,6 +109,7 @@ const ICONS = {
   'lightbulb':    '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
   'droplet':      '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
   'book':         '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M8 11h8"/><path d="M8 7h6"/>',
+  'settings':     '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
 };
 function icon(name, size = 16) {
   const p = ICONS[name] || '';
@@ -736,28 +737,7 @@ function updateDesktopRightPanel(pageId) {
       </div>`;
 
   } else if (pageId === 'inbody') {
-    const records = getData('inbody', []);
-    rp.className = 'desktop-rp rp-on';
-    if (!records.length) {
-      rp.innerHTML = '<div class="rp-title">最新體組成</div><div class="rp-sub" style="margin-top:8px">尚無紀錄</div>';
-      return;
-    }
-    const rec = records.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-    rp.innerHTML = `
-      <div class="rp-title">最新體組成</div>
-      <div style="font-size:10px;color:var(--text-3);margin-top:-6px">${rec.date}</div>
-      <div>
-        <div class="rp-big">${rec.weight} <span class="rp-big-unit">kg</span></div>
-        <div class="rp-sub">體重</div>
-      </div>
-      <div class="rp-divider"></div>
-      <div>
-        ${stat('肌肉量', rec.muscle + ' kg')}
-        ${stat('體脂率', rec.fatPct + '%')}
-        ${stat('BMI', rec.bmi ?? '—')}
-        ${stat('內臟脂肪', rec.visceral ?? '—')}
-        ${stat('基礎代謝', rec.bmr ? rec.bmr + ' kcal' : '—')}
-      </div>`;
+    rp.className = 'desktop-rp'; // 體組成頁已為滿版，隱藏右欄避免重複
 
   } else if (pageId === 'profile') {
     rp.className = 'desktop-rp'; // 儀表板已為滿版，隱藏右欄
@@ -2589,19 +2569,19 @@ function renderProfileDesktop() {
   const container = document.getElementById('profile-content');
   if (!container) return;
 
-  // notif badge (mirror mobile)
-  const notifDot = document.getElementById('profile-notif-dot');
-  if (notifDot) {
-    const badge = _hasBadge();
-    notifDot.style.display = badge ? '' : 'none';
-    if (badge) _recordNotifShown();
-  }
-
   if (_profileEditMode) {
     container.innerHTML = `<div class="dash"><div class="dash-editcard">${_buildProfileEditForm()}</div></div>`;
     return;
   }
   container.innerHTML = _buildDashboard();
+
+  // 通知紅點（儀表板問候列上的鈴鐺）
+  const notifDot = document.getElementById('dash-notif-dot');
+  if (notifDot) {
+    const badge = _hasBadge();
+    notifDot.style.display = badge ? '' : 'none';
+    if (badge) _recordNotifShown();
+  }
 }
 
 function updateSidebarPlayer() {
@@ -2736,11 +2716,15 @@ function _buildDashboard() {
   return `
   <div class="dash">
     <div class="dash-greet">
-      <div>
+      <div class="dash-greet-text">
         <div class="dash-greet-h">${greet}，${profile.name || '冒險者'}</div>
         <div class="dash-greet-sub">${_dashTodayLabel()}</div>
       </div>
-      <button class="dash-quick" onclick="openAddDiaryEntrySheet()">＋ 快速記錄飲食</button>
+      <div class="dash-greet-actions">
+        <button class="dash-icon-btn" onclick="openNotifCenter()" title="通知中心">${icon('bell', 18)}<span class="notif-dot" id="dash-notif-dot" style="display:none"></span></button>
+        <button class="dash-icon-btn" onclick="navigateTo('settings')" title="設定">${icon('settings', 18)}</button>
+        <button class="dash-quick" onclick="openAddDiaryEntrySheet()">＋ 快速記錄飲食</button>
+      </div>
     </div>
 
     <div class="dash-links">
