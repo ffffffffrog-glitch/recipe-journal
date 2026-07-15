@@ -3682,3 +3682,97 @@ body.storage-error .page { padding-top: 44px; }
   #page-achievements .ach-search-bar { max-width: none; width: auto; margin: 0; padding: 0; }
   #page-achievements #achievements-content { max-width: none; width: auto; margin: 0; padding: 6px 0 44px; overflow: visible !important; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   桌機統一：全部滿版 + 標題靠左 + 內容左緣一致(30px)
+   ════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  /* 標題列左緣基準 = 30px；子頁返回鍵只留給 habit-detail */
+  .page-header { padding: 26px 30px 10px; }
+  #page-fooddb .page-header-side:first-child,
+  #page-achievements .page-header-side:first-child,
+  #page-inbody .page-header-side:first-child,
+  #page-settings .page-header-side:first-child { display: none; }
+
+  /* 左側 Menu 文字加深（原本偏淡像 disabled） */
+  .bottom-nav .nav-btn { color: #55534e; }
+  .bottom-nav .nav-btn .nav-icon { color: #6f6d67; }
+  .bottom-nav .nav-btn:hover { color: var(--text); }
+  .bottom-nav .nav-btn.active,
+  .bottom-nav .nav-btn.active .nav-icon { color: var(--sage); }
+
+  /* 儀表板：滿版靠左 */
+  .dash { max-width: none; width: auto; margin: 0; align-self: auto; padding: 22px 30px 48px; }
+  /* 習慣連續：連續天數固定寬，避免二位數把週格推移 */
+  .dash-hs-streak { width: 52px; text-align: right; flex-shrink: 0; }
+
+  /* 成就：滿版靠左、搜尋與內容同左緣 */
+  #page-achievements.active { padding-left: 0; padding-right: 0; overflow-y: auto; }
+  #page-achievements .ach-search-bar { max-width: none; width: auto; margin: 0; padding: 0 30px; }
+  #page-achievements #achievements-content { max-width: none; width: auto; margin: 0; padding: 10px 30px 44px; overflow: visible !important; }
+
+  /* 設定：滿版靠左 */
+  #page-settings .settings-content { max-width: none; margin: 0; padding: 12px 30px 44px; }
+
+  /* 每日任務：滿版靠左（消除置中/靠左的位移感）+ 動作移到右上角 */
+  #page-quests #quest-content { max-width: none; margin: 0; padding: 16px 30px; }
+  .quests-desktop-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 13px; border-radius: 9px; font-size: 12.5px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--white); color: var(--text-2); cursor: pointer;
+  }
+  .quests-desktop-action:hover { border-color: var(--sage); color: var(--sage); }
+  .quests-desktop-action.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .quests-desktop-action.primary:hover { background: #3d5644; color: #fff; }
+  #page-quests .ct-add-btn { display: none; }          /* 內文的新增改到右上角 */
+  #page-quests #quest-history-footer { display: none; } /* 歷史改到右上角按鈕 */
+
+  /* 食材庫：標題 / 搜尋 / 分類 / 表格 左緣一律 30px */
+  #page-fooddb .search-bar-container { padding: 4px 30px 10px; }
+  #page-fooddb .category-filter { padding: 0 30px 12px; }
+  #page-fooddb .food-list { padding: 2px 30px 40px; }
+
+  /* 運動：右側統計改為浮起卡片（四邊留白 + 完整邊框） */
+  #workout-stats { border-left: none; background: transparent; padding: 16px 20px 16px 4px; }
+  .wstat-card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+}
+
+/* 每日任務 / 食譜 桌機動作鈕在手機隱藏 */
+.quests-desktop-action { display: none; }
+.recipe-search-desktop-wrap { display: none; }
+
+/* ════════════ 食譜：清單欄(搜尋在標題下) + 詳情浮起卡片 ════════════ */
+@media (min-width: 1024px) {
+  #page-recipes.active {
+    grid-template-columns: 1fr 400px;
+    grid-template-areas: "header header" "listcol detail";
+  }
+  .recipe-list-col {
+    grid-area: listcol; display: flex; flex-direction: column;
+    overflow: hidden; padding-left: 30px; min-width: 0;
+  }
+  .recipe-search-desktop-wrap { display: block; padding: 4px 16px 12px 0; }
+  #page-recipes .recipe-search-desktop { display: block; width: 100%; }
+  #recipe-list.recipe-grid {
+    flex: 1; overflow-y: auto; border-right: none; background: transparent;
+    padding: 0 16px 24px 0;
+  }
+  /* 詳情做成真正的卡片：四邊留白、圓角、完整邊框 */
+  #recipe-detail-pane {
+    grid-area: detail; margin: 4px 24px 22px 6px;
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    background: var(--white); box-shadow: var(--shadow, 0 1px 2px rgba(0,0,0,.04));
+  }
+
+  /* 習慣卡整張可點 + 提示 */
+  .hdk-card { cursor: pointer; }
+  .hdk-hint { font-size: 11px; color: var(--text-3); margin-top: 10px; }
+  /* 習慣詳情頁（可逐日點選、顯示日期）滿版 */
+  #page-habit-detail .habit-detail-page { padding: 6px 30px 44px; }
+  #page-habit-detail .header-back-btn { display: inline-flex; }
+}
+
+/* 修正順序：確保桌機顯示每日任務動作鈕（覆蓋前面的手機預設 display:none） */
+@media (min-width: 1024px) {
+  .quests-desktop-action { display: inline-flex; }
+}

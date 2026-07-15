@@ -829,8 +829,7 @@ function filterRecipes() {
   if (!container) return;
 
   if (!recipes.length) {
-    const addCard = isDesktop ? `<div class="recipe-add-card" onclick="openNewRecipeForm()"><div class="recipe-add-icon">＋</div><div class="recipe-add-label">新增食譜</div></div>` : '';
-    container.innerHTML = addCard + `<div class="recipe-empty"><div class="empty-icon">${icon('book-open', 48)}</div><p>尚無食譜<br>${isDesktop ? '點擊左上方「＋」' : '點擊右下角「＋」'}新增第一道料理！</p></div>`;
+    container.innerHTML = `<div class="recipe-empty"><div class="empty-icon">${icon('book-open', 48)}</div><p>尚無食譜<br>${isDesktop ? '點擊右上方「＋ 新增食譜」' : '點擊右下角「＋」'}新增第一道料理！</p></div>`;
     _clearRecipePane('尚無食譜，點左側「＋ 新增食譜」開始建立');
     return;
   }
@@ -848,8 +847,7 @@ function filterRecipes() {
     return;
   }
 
-  const addCard = isDesktop ? `<div class="recipe-add-card" onclick="openNewRecipeForm()"><div class="recipe-add-icon">＋</div><div class="recipe-add-label">新增食譜</div></div>` : '';
-  container.innerHTML = addCard + filtered.map(recipe => `
+  container.innerHTML = filtered.map(recipe => `
     <div class="recipe-card" data-rid="${recipe.id}" onclick="openRecipeDetail('${recipe.id}')">
       ${recipe.image
         ? `<img class="recipe-card-img" src="${recipe.image}" alt="${recipe.name}" loading="lazy">`
@@ -4677,8 +4675,8 @@ function _buildHabitDesktopCard(habit) {
   else if (st === 'skip') { cbCls += ' skip'; cbTxt = '—'; }
 
   return `
-    <div class="hdk-card">
-      <div class="hdk-top" onclick="openHabitDetail('${habit.id}')">
+    <div class="hdk-card" onclick="openHabitDetail('${habit.id}')" title="點擊查看每日紀錄與統計">
+      <div class="hdk-top">
         <span class="hdk-dot" style="background:${habit.color}"></span>
         <span class="hdk-name">${habit.name}</span>
         <span class="hdk-freq">${freqLabel}</span>
@@ -4689,6 +4687,7 @@ function _buildHabitDesktopCard(habit) {
         <button class="${cbCls}" onclick="event.stopPropagation();toggleHabitDay('${habit.id}','${todayDs}')" title="今日打卡">${cbTxt}</button>
       </div>
       <canvas id="hcvs-${habit.id}" class="habit-grid-canvas"></canvas>
+      <div class="hdk-hint">點擊展開每日紀錄 · 可逐日改狀態 →</div>
     </div>`;
 }
 
