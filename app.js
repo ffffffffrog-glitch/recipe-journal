@@ -6941,7 +6941,7 @@ async function renderQuests() {
             主線 ${mainDone}/${tasks.main.length}${tasks.side.length ? ` · 支線 ${sideDone}/${tasks.side.length}` : ''}${ctasks.length ? ` · 自訂 ${customDoneN}/${ctasks.length}` : ''}
           </div>
         </div>
-        <div class="qhc-hint">${allDone ? '✦ 全部完成！' : (remainN > 0 ? `再完成 ${remainN} 項${allMainDone ? '' : '，主線全清 +30 XP'}` : '')}</div>
+        <div class="qhc-hint">${allDone ? '✦ 全部完成！' : ''}</div>
       </div>
       <div class="quest-section">
         <div class="quest-section-label">${icon('zap', 13)} 主線任務</div>

@@ -4016,3 +4016,14 @@ body.storage-error .page { padding-top: 44px; }
 
 /* 成就內容不自帶捲軸（整頁一起捲，統計不冷凍）*/
 #achievements-content { overflow: visible !important; }
+
+/* ════════════ 第 9 輪微調 ════════════ */
+@media (min-width: 1024px) {
+  /* 習慣追蹤整體置中 */
+  .hdk-grid, .hdk-summary { margin-left: auto; margin-right: auto; }
+  /* 首頁習慣格：今天不加外框（保留星期標籤高亮即可）*/
+  .dash-hs-week i.today { outline: none; }
+}
+@media (min-width: 1960px) {
+  .hdk-grid, .hdk-summary { max-width: 1560px; }
+}
