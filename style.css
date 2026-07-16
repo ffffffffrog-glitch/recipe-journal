@@ -3836,3 +3836,40 @@ body.storage-error .page { padding-top: 44px; }
 /* 表單標題若與動作鈕同排，分隔線改放在整列（避免只有標題文字下方一小截） */
 .sheet-title-row { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 .sheet-title-row .sheet-title { border-bottom: none; padding-bottom: 0; }
+
+/* ════════════ 第 6 輪回饋修正 ════════════ */
+@media (min-width: 1024px) {
+  /* 側欄：體組成進 body 群組（成就後、工具前）+ 品牌 logo */
+  .nav-btn[data-page="inbody"]       { order: 12; }
+  .nav-group-label[data-grp="tools"] { order: 13; }
+  .nav-btn[data-page="settings"]     { order: 14; }
+  .sidebar-player                    { order: 15; }
+  .desktop-nav-header { flex-direction: row; align-items: center; gap: 10px; }
+  .dnh-logo { width: 30px; height: 30px; border-radius: 9px; background: var(--sage-pale); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .dnh-text { min-width: 0; }
+
+  /* 飲食日誌：日期切換移到餐卡上方；2×2 餐卡；右欄內縮留白 */
+  #page-diary .date-nav .date-nav-btn,
+  #page-diary .date-nav .date-display { display: none; }
+  #page-diary #diary-entries { display: flex; flex-direction: column; gap: 14px; }
+  .diary-dateswitch { display: flex; align-items: center; gap: 10px; }
+  .diary-dsw-date { font-size: 15px; font-weight: 700; cursor: pointer; padding: 4px 10px; border-radius: 8px; }
+  .diary-dsw-date:hover { background: var(--sage-faint); }
+  .diary-meals-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  #page-diary #daily-summary { padding: 18px 24px; }
+
+  /* 食譜：詳情加寬 + 選中邊框不被裁切 */
+  #page-recipes.active { grid-template-columns: 1fr 440px; }
+  #recipe-list.recipe-grid { padding: 6px 16px 24px 4px; }
+  #recipe-list .recipe-card.sel { border-color: transparent; box-shadow: 0 0 0 2px var(--sage); }
+
+  /* 成就：卡片依寬度動態排列（每張 ≤ ~400px、填滿寬度）*/
+  #achievements-content .ach-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+}
+
+/* 成就總覽：桌機左右、手機上下兩列（統計在上、稱號在下）*/
+.ach-overview { display: flex; align-items: center; gap: 18px 24px; flex-wrap: wrap; }
+.ach-ov-main { display: flex; align-items: center; gap: 16px; }
+.ach-ov-headline { font-size: 15px; font-weight: 700; color: var(--text); }
+.ach-ov-titles { flex: 1; min-width: 260px; }
+.ach-ov-sublabel { font-size: 12px; color: var(--text-3); margin-bottom: 8px; }

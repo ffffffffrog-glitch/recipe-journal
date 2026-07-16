@@ -1868,11 +1868,19 @@ function renderDiary() {
   MEALS.forEach(m => grouped[m] = []);
   entries.forEach(e => { (grouped[e.meal] || grouped['點心']).push(e); });
 
-  // ── 桌機：月曆 + 2×2 餐卡 + 營養右欄 ──
+  // ── 桌機：月曆 + 日期切換 + 2×2 餐卡 + 營養右欄 ──
   if (window.innerWidth >= 1024) {
     document.getElementById('daily-summary').innerHTML = _diarySummaryRail(tot, goals);
     _renderDiaryCalendar(ds);
-    document.getElementById('diary-entries').innerHTML = MEALS.map(meal => _diaryMealCard(meal, grouped[meal], ds)).join('');
+    const atToday = ds >= todayStr();
+    const dsw = `
+      <div class="diary-dateswitch">
+        <button class="date-arrow" onclick="changeDiaryDate(-1)">‹</button>
+        <div class="diary-dsw-date" onclick="openDatePicker()">${formatDisplayDate(ds)}</div>
+        <button class="date-arrow" onclick="changeDiaryDate(1)"${atToday ? ' disabled' : ''}>›</button>
+      </div>`;
+    document.getElementById('diary-entries').innerHTML =
+      dsw + `<div class="diary-meals-grid">${MEALS.map(meal => _diaryMealCard(meal, grouped[meal], ds)).join('')}</div>`;
     return;
   }
 
@@ -4964,24 +4972,7 @@ function toggleHabitDay(habitId, ds) {
   else log[ds][habitId] = next;
   setData('habitLog', log);
   if (next === 'done') { if (cur === '') onHabitLogged(); navigator.vibrate?.(15); }
-  if (window.innerWidth >= 1024) {
-    // Partial update — avoids redrawing all canvases (prevents jitter)
-    const top = document.querySelector(`.habit-desktop-top[data-habit-id="${habitId}"]`);
-    if (top) {
-      const cb = top.querySelector('.habit-desktop-cb');
-      if (cb) {
-        cb.className = 'habit-desktop-cb';
-        cb.textContent = '';
-        if (next === 'done') { cb.classList.add('state-done'); cb.textContent = '✓'; }
-        else if (next === 'skip') { cb.classList.add('state-skip'); cb.textContent = '—'; }
-      }
-      const canvas = document.getElementById('hcvs-' + habitId);
-      const habit  = getData('habits', []).find(h => h.id === habitId);
-      if (canvas && habit) _drawHabitGrid(canvas, habitId, habit.color);
-    }
-  } else {
-    renderHabits();
-  }
+  renderHabits();   // 桌機/手機都即時重繪（桌機分支見 renderHabitsDesktop）
 }
 
 function buildFreqLabel(freq) {
@@ -7691,7 +7682,6 @@ function renderAchievements() {
                     ${triggerTag}${titleTag}${achDateStr}
                     ${progHtml}
                   </div>
-                  ${done ? `<div class="ach-done-mark">${icon('star', 11)}</div>` : ''}
                 </div>`;
             }).join('')}
           </div>
@@ -7702,11 +7692,13 @@ function renderAchievements() {
   const ovPct = total ? Math.round(unlocked.size / total * 100) : 0;
   const overviewHtml = `
     <div class="ach-overview">
-      <div class="ach-ov-ring" style="--p:${ovPct}">
-        <div class="ach-ov-ring-in"><b class="tnum">${unlocked.size}</b><span>/ ${total}</span></div>
-      </div>
-      <div class="ach-ov-info">
+      <div class="ach-ov-main">
+        <div class="ach-ov-ring" style="--p:${ovPct}">
+          <div class="ach-ov-ring-in"><b class="tnum">${unlocked.size}</b><span>/ ${total}</span></div>
+        </div>
         <div class="ach-ov-headline">已解鎖 ${unlocked.size} 個成就 · ${ovPct}%</div>
+      </div>
+      <div class="ach-ov-titles">
         <div class="ach-ov-sublabel">目前已取得稱號</div>
         <div class="title-chips-wrap">
           ${(gd.titles || ['旅人']).map(t => `
@@ -7716,10 +7708,9 @@ function renderAchievements() {
       </div>
     </div>`;
 
-  document.getElementById('achievements-content').innerHTML = `
-    ${overviewHtml}
-    ${gridHtml}
-    <div style="height:30px"></div>`;
+  const slot = document.getElementById('ach-overview-slot');
+  if (slot) slot.innerHTML = overviewHtml;
+  document.getElementById('achievements-content').innerHTML = `${gridHtml}<div style="height:30px"></div>`;
 }
 
 // ===== ACHIEVEMENT MANAGEMENT (recompute / remove) =====
