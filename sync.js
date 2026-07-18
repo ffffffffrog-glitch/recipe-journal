@@ -34,6 +34,32 @@ function _mergeValue(key, localVal, remoteVal, remoteNewer) {
     const secondary = remoteNewer ? localVal : remoteVal;
     return Object.assign({}, secondary, primary);   // 同一天的 key 以 primary（較新方）為準
   }
+  // 遊戲化資料：成就/稱號聯集、XP/Gold/等級取較高者，避免被較空的一方整包歸零
+  if (key === 'gamification' && localVal && remoteVal
+      && typeof localVal === 'object' && typeof remoteVal === 'object'
+      && !Array.isArray(localVal) && !Array.isArray(remoteVal)) {
+    const primary   = remoteNewer ? remoteVal : localVal;   // 非集合欄位以較新方為準
+    const secondary = remoteNewer ? localVal : remoteVal;
+    const merged = Object.assign({}, secondary, primary);
+    // 成就 / 稱號：聯集（任一裝置解過的都保留，不會被另一方蓋成 0）
+    merged.achievements = [...new Set([...(localVal.achievements || []), ...(remoteVal.achievements || [])])];
+    merged.titles       = [...new Set([...(localVal.titles || []), ...(remoteVal.titles || [])])];
+    // 成就取得日期：兩邊聯集，同一成就取較早日期（首次達成才正確）
+    const dA = localVal.achievementDates || {}, dB = remoteVal.achievementDates || {};
+    const dates = Object.assign({}, dA, dB);
+    Object.keys(dates).forEach(id => {
+      if (dA[id] && dB[id]) dates[id] = (dA[id] < dB[id] ? dA[id] : dB[id]);
+    });
+    merged.achievementDates = dates;
+    // XP / 金幣 / 等級：較高者勝；等級由合併後的 xp 重算以保持一致
+    merged.xp    = Math.max(localVal.xp   || 0, remoteVal.xp   || 0);
+    merged.gold  = Math.max(localVal.gold || 0, remoteVal.gold || 0);
+    merged.level = (typeof _calcLevel === 'function')
+      ? _calcLevel(merged.xp)
+      : Math.max(localVal.level || 1, remoteVal.level || 1);
+    merged.activeTitle = primary.activeTitle || secondary.activeTitle || '旅人';
+    return merged;
+  }
   return remoteNewer ? remoteVal : localVal;
 }
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;   // 5 分鐘

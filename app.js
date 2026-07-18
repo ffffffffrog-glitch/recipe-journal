@@ -110,6 +110,7 @@ const ICONS = {
   'droplet':      '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
   'book':         '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M8 11h8"/><path d="M8 7h6"/>',
   'settings':     '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  'refresh-cw':   '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
 };
 function icon(name, size = 16) {
   const p = ICONS[name] || '';
@@ -8023,6 +8024,10 @@ function openAchievementsManage() {
       <button class="td-close" onclick="closeAchievementsManage()">✕</button>
     </div>
     <div class="amg-sub">這裡只顯示已達成的成就。移除某個成就會讓系統依「目前的全部資料」重新計算：若仍符合條件會自動保留，若已不符合（例如你修正了紀錄）才會被移除。</div>
+    <div class="amg-actions">
+      <button class="amg-recompute" onclick="recomputeAllAchievements()">${icon('refresh-cw', 15)} 重新計算所有成就</button>
+      <div class="amg-recompute-hint">依目前所有資料，把「應得但沒顯示」的成就補回來（例如同步後成就歸零時）。只會補回、不會移除。</div>
+    </div>
     <div class="amg-list" id="amg-list"></div>`;
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
@@ -8032,6 +8037,21 @@ function openAchievementsManage() {
 function closeAchievementsManage() {
   document.getElementById('ach-manage-overlay')?.remove();
   document.body.style.overflow = '';
+  if (state.currentPage === 'achievements') renderAchievements();
+}
+
+// 依「目前所有資料」重新計算並補回應得的成就（例如同步後成就被歸零時使用）。
+// 只會「補回」不會移除——移除仍走各成就的「移除」鈕。
+function recomputeAllAchievements() {
+  const gd = getGameData();
+  const valid = _computeValidAchievements(gd);
+  let restored = 0;
+  valid.forEach(id => {
+    if (ACHIEVEMENTS_DEF[id] && _tryUnlock(gd, id)) { _grantXP(gd, 50); restored++; }
+  });
+  setData('gamification', gd);
+  showToast(restored ? `已重新計算，補回 ${restored} 項成就` : '成就已是最新，沒有可補回的項目');
+  renderAchievementsManageList();
   if (state.currentPage === 'achievements') renderAchievements();
 }
 

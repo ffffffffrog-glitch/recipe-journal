@@ -882,6 +882,16 @@ img { max-width: 100%; display: block; }
   font-size: .8rem; font-weight: 600; font-family: var(--font); cursor: pointer; transition: all .15s;
 }
 .amg-remove:active, .amg-remove:hover { background: #fce8e8; border-color: #f0c0c0; }
+.amg-actions { margin-top: 14px; }
+.amg-recompute {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border: 1px solid var(--sage); border-radius: 10px;
+  background: var(--sage); color: #fff;
+  font-size: .85rem; font-weight: 700; font-family: var(--font); cursor: pointer; transition: all .15s;
+}
+.amg-recompute:active, .amg-recompute:hover { filter: brightness(1.05); }
+.amg-recompute svg { width: 15px; height: 15px; }
+.amg-recompute-hint { font-size: .72rem; color: var(--text-3); line-height: 1.5; margin-top: 8px; }
 @media (min-width: 1024px) {
   .ach-manage-overlay { max-width: 640px; margin: 0 auto; box-shadow: 0 0 0 100vmax rgba(0,0,0,.4); }
 }
