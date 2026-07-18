@@ -8176,6 +8176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = JSON.parse(e.target.result);
         showConfirm('匯入將覆蓋現有資料（地球Online任務庫會合併保留），確定繼續？', () => {
           Object.entries(data).forEach(([k, v]) => {
+            if (k === 'syncMeta') return;   // 不要用備份裡的舊時間戳蓋掉本地，否則還原的資料會被雲端舊版當成「更舊」而丟棄
             if (k === 'earthArchive') {
               // Merge: keep all unique tasks from both local and backup
               const local = getData('earthArchive', []);
@@ -8189,6 +8190,14 @@ document.addEventListener('DOMContentLoaded', () => {
               localStorage.setItem(k, JSON.stringify(v));
             }
           });
+          // 把所有還原的鍵時間戳標記為「現在」，讓還原的備份被視為最新版、確實推上雲端蓋過舊資料
+          try {
+            const meta = getData('syncMeta', { ts: {} });
+            if (!meta.ts) meta.ts = {};
+            const now = Date.now();
+            Object.keys(data).forEach(k => { if (k !== 'syncMeta') meta.ts[k] = now; });
+            localStorage.setItem('syncMeta', JSON.stringify(meta));
+          } catch (e) { console.warn('[import] 更新 syncMeta 失敗', e); }
           showToast('資料已匯入，重新載入中…');
           setTimeout(() => location.reload(), 1200);
         }, '確認匯入');
