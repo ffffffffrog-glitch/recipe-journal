@@ -8186,6 +8186,49 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('資料已匯出');
   };
 
+  // 套用匯入的備份資料（可獨立測試）。還原＝完全取代：備份沒有的集合項目會被記墓碑並跨裝置刪除。
+  window._applyImportedData = function (data) {
+    const _collKeys = ['foodDB', 'recipes', 'inbody', 'workoutLog', 'habits'];
+    const _preIds = {};   // 匯入前本機各集合的 id，用來判斷哪些被備份移除 → 記墓碑
+    _collKeys.forEach(k => { _preIds[k] = new Set((getData(k, []) || []).map(x => x && x.id).filter(v => v != null)); });
+    Object.entries(data).forEach(([k, v]) => {
+      if (k === 'syncMeta') return;   // 不要用備份裡的舊時間戳蓋掉本地，否則還原的資料會被雲端舊版當成「更舊」而丟棄
+      if (k === 'earthArchive') {
+        // Merge: keep all unique tasks from both local and backup
+        const local = getData('earthArchive', []);
+        const imported = Array.isArray(v) ? v : [];
+        const merged = [...local];
+        imported.forEach(item => {
+          if (!merged.find(m => m.task === item.task)) merged.push(item);
+        });
+        setData('earthArchive', merged);
+      } else {
+        localStorage.setItem(k, JSON.stringify(v));
+      }
+    });
+    try {
+      const now = Date.now();
+      // 還原＝真正取代：本機原本有、但備份沒有的項目 → 記墓碑（跨裝置刪除）；
+      // 還原保留的項目補 updatedAt=now，確保勝過任何墓碑（含雲端聯集回來的舊版）。
+      const tombs = getData('deletions', {});
+      _collKeys.forEach(k => {
+        const arr = getData(k, null);
+        const backupIds = new Set(Array.isArray(arr) ? arr.map(x => x && x.id).filter(v => v != null) : []);
+        if (!tombs[k]) tombs[k] = {};
+        _preIds[k].forEach(id => { if (!backupIds.has(id)) tombs[k][id] = now; });
+        if (Array.isArray(arr)) {
+          arr.forEach(it => { if (it && typeof it === 'object') it.updatedAt = now; });
+          localStorage.setItem(k, JSON.stringify(arr));
+        }
+      });
+      setData('deletions', tombs);
+      const meta = getData('syncMeta', { ts: {} });
+      if (!meta.ts) meta.ts = {};
+      Object.keys(data).forEach(k => { if (k !== 'syncMeta') meta.ts[k] = now; });
+      localStorage.setItem('syncMeta', JSON.stringify(meta));
+    } catch (e) { console.warn('[import] 更新 syncMeta 失敗', e); }
+  };
+
   window.importAppData = function (input) {
     const file = input.files[0];
     if (!file) return;
@@ -8193,38 +8236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        showConfirm('匯入將覆蓋現有資料（地球Online任務庫會合併保留），確定繼續？', () => {
-          Object.entries(data).forEach(([k, v]) => {
-            if (k === 'syncMeta') return;   // 不要用備份裡的舊時間戳蓋掉本地，否則還原的資料會被雲端舊版當成「更舊」而丟棄
-            if (k === 'earthArchive') {
-              // Merge: keep all unique tasks from both local and backup
-              const local = getData('earthArchive', []);
-              const imported = Array.isArray(v) ? v : [];
-              const merged = [...local];
-              imported.forEach(item => {
-                if (!merged.find(m => m.task === item.task)) merged.push(item);
-              });
-              setData('earthArchive', merged);
-            } else {
-              localStorage.setItem(k, JSON.stringify(v));
-            }
-          });
-          // 把所有還原的鍵時間戳標記為「現在」，讓還原的備份被視為最新版、確實推上雲端蓋過舊資料
-          try {
-            const now = Date.now();
-            // 集合項目補上 updatedAt=now，確保還原的資料勝過任何既有墓碑（不會被軟刪除吃掉）
-            ['foodDB', 'recipes', 'inbody', 'workoutLog', 'habits'].forEach(k => {
-              const arr = getData(k, null);
-              if (Array.isArray(arr)) {
-                arr.forEach(it => { if (it && typeof it === 'object') it.updatedAt = now; });
-                localStorage.setItem(k, JSON.stringify(arr));
-              }
-            });
-            const meta = getData('syncMeta', { ts: {} });
-            if (!meta.ts) meta.ts = {};
-            Object.keys(data).forEach(k => { if (k !== 'syncMeta') meta.ts[k] = now; });
-            localStorage.setItem('syncMeta', JSON.stringify(meta));
-          } catch (e) { console.warn('[import] 更新 syncMeta 失敗', e); }
+        showConfirm('匯入會以備份「完全取代」現有資料：備份中沒有的項目會被刪除，並同步到你其他已登入的裝置（地球Online任務庫會合併保留）。確定繼續？', () => {
+          _applyImportedData(data);
           showToast('資料已匯入，重新載入中…');
           setTimeout(() => location.reload(), 1200);
         }, '確認匯入');
