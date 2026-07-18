@@ -10,7 +10,10 @@ const SYNC_KEYS = [
   'diary', 'foodDB', 'recipes', 'workoutLog', 'weightLog',
   'habits', 'habitLog', 'inbody', 'gamification', 'profile',
   'dailyQuestsDone', 'appTheme', 'askWeightDaily', 'avatarData',
+  'deletions',
 ];
+// 墓碑保留天數：超過此天數的刪除記錄會被回收（假設所有裝置都在此期間內同步過一次）
+const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 // 以 id 為主鍵的「集合」：合併時做「聯集」而非整包覆蓋，避免任一裝置的新增品項被另一裝置蓋掉。
 const ID_COLLECTIONS = ['foodDB', 'recipes', 'inbody', 'workoutLog', 'habits'];
@@ -59,6 +62,21 @@ function _mergeValue(key, localVal, remoteVal, remoteNewer) {
       : Math.max(localVal.level || 1, remoteVal.level || 1);
     merged.activeTitle = primary.activeTitle || secondary.activeTitle || '旅人';
     return merged;
+  }
+  // 墓碑登記表 { 集合鍵: { id: 刪除時間ms } }：深層聯集，同一 id 取較晚的刪除時間
+  if (key === 'deletions' && localVal && remoteVal
+      && typeof localVal === 'object' && typeof remoteVal === 'object'
+      && !Array.isArray(localVal) && !Array.isArray(remoteVal)) {
+    const out = {};
+    new Set([...Object.keys(localVal), ...Object.keys(remoteVal)]).forEach(coll => {
+      const a = localVal[coll] || {}, b = remoteVal[coll] || {};
+      const m = {};
+      new Set([...Object.keys(a), ...Object.keys(b)]).forEach(id => {
+        m[id] = Math.max(a[id] || 0, b[id] || 0);
+      });
+      out[coll] = m;
+    });
+    return out;
   }
   return remoteNewer ? remoteVal : localVal;
 }
@@ -181,6 +199,35 @@ async function _pullAndMerge() {
       }
     });
   } finally { _applyingRemote = false; }
+
+  // ---- 套用墓碑：移除已被刪除的集合項目（含經聯集又被補回來的）----
+  const tombs = getData('deletions', {});
+  const now = Date.now();
+  let tombsChanged = false;
+  ID_COLLECTIONS.forEach(key => {
+    const arr = getData(key, undefined);
+    const t = tombs[key];
+    if (!Array.isArray(arr) || !t) return;
+    const kept = arr.filter(item => {
+      const del = (item && item.id != null) ? t[item.id] : undefined;
+      if (del == null) return true;
+      return (item.updatedAt || 0) > del;   // 只有「刪除之後又被編輯」才保留，否則移除
+    });
+    if (kept.length !== arr.length) {
+      localStorage.setItem(key, JSON.stringify(kept));
+      meta.ts[key] = now;                    // 標記本地已變更，讓刪除結果回推雲端
+      changed = true;
+    }
+  });
+  // ---- 回收過期墓碑（超過 TTL）----
+  Object.keys(tombs).forEach(coll => {
+    Object.keys(tombs[coll]).forEach(id => {
+      if (now - (tombs[coll][id] || 0) > TOMBSTONE_TTL_MS) { delete tombs[coll][id]; tombsChanged = true; }
+    });
+    if (!Object.keys(tombs[coll]).length) { delete tombs[coll]; tombsChanged = true; }
+  });
+  if (tombsChanged) { localStorage.setItem('deletions', JSON.stringify(tombs)); }
+
   localStorage.setItem('syncMeta', JSON.stringify(meta));
   if (changed) _refreshUI();
 }

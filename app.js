@@ -368,6 +368,15 @@ function setData(key, val) {
   // 通知雲端同步層（sync.js）此鍵有變動；_applyingRemote 期間不回報，避免把剛拉下來的資料又標記成本地變更
   try { if (window._onLocalDataChanged) window._onLocalDataChanged(key); } catch(_) {}
 }
+// 軟刪除：登記墓碑（集合鍵 + 項目 id + 刪除時間），讓刪除能跨裝置同步而不被聯集補回。
+// 定義在 app.js 以確保即使 sync.js 未載入，刪除流程仍可運作。
+function _recordDeletion(key, id) {
+  if (id == null) return;
+  const t = getData('deletions', {});
+  if (!t[key]) t[key] = {};
+  t[key][id] = Date.now();
+  setData('deletions', t);
+}
 
 function initStorage() {
   if (!getData('foodDB', null)) {
@@ -1281,6 +1290,7 @@ function saveQuickCreateIngredientModal() {
     per100g: { calories: cal, protein: pro, fat, carbs: carb, fiber: 0 },
     createdAt: new Date().toISOString().slice(0, 10),
   };
+  food.updatedAt = Date.now();
   const foods = getData('foodDB', []);
   foods.push(food);
   setData('foodDB', foods);
@@ -1468,7 +1478,7 @@ function saveRecipeForm() {
   }, { calories:0, protein:0, fat:0, carbs:0, fiber:0 });
   Object.keys(nutrition).forEach(k => nutrition[k] = r(nutrition[k]));
 
-  const recipe = { id, name, time, notes, image: imageData, ingredients, steps, nutrition };
+  const recipe = { id, name, time, notes, image: imageData, ingredients, steps, nutrition, updatedAt: Date.now() };
   const recipes = getData('recipes', []);
   const idx = recipes.findIndex(r => r.id === id);
   if (idx >= 0) recipes[idx] = recipe; else recipes.push(recipe);
@@ -1491,6 +1501,7 @@ function deleteRecipeConfirm(id) {
   showConfirm(`確定要刪除食譜<strong>「${recipe.name}」</strong>嗎？`, () => {
     const recipes = getData('recipes', []).filter(r => r.id !== id);
     setData('recipes', recipes);
+    _recordDeletion('recipes', id);
     closeModal('modal-recipe-detail');
     renderRecipeList();
     showToast('食譜已刪除');
@@ -1826,6 +1837,7 @@ function saveFoodForm() {
     ...(serving && { serving }),
     ...(note && { note })
   };
+  food.updatedAt = Date.now();
   const db = getData('foodDB', []);
   const idx = db.findIndex(f => f.id === id);
   if (idx >= 0) db[idx] = food; else db.push(food);
@@ -1841,6 +1853,7 @@ function deleteFoodConfirm(id) {
   showConfirm(`確定要刪除食材<strong>「${food.name}」</strong>嗎？`, () => {
     const db = getData('foodDB', []).filter(f => f.id !== id);
     setData('foodDB', db);
+    _recordDeletion('foodDB', id);
     renderFoodDB();
     showToast('食材已刪除');
   });
@@ -4642,6 +4655,7 @@ function saveWorkoutEntry() {
     entry.createdAt = new Date().toISOString().slice(0, 19);
     log.push(entry);
   }
+  entry.updatedAt = Date.now();
   setData('workoutLog', log);
   closeBottomSheet('sheet-workout-form');
   renderWorkout();
@@ -4653,6 +4667,7 @@ function deleteCurrentWorkout() {
   if (!_editingWorkoutId) return;
   const log = getData('workoutLog', []).filter(e => e.id !== _editingWorkoutId);
   setData('workoutLog', log);
+  _recordDeletion('workoutLog', _editingWorkoutId);
   closeBottomSheet('sheet-workout-form');
   renderWorkout();
   showToast('已刪除');
@@ -5400,7 +5415,7 @@ function saveHabitForm() {
   const freqX    = parseInt(document.getElementById('habit-freq-x').value) || 1;
   const freq     = freqType === 'daily' ? { type: 'daily' } : { type: freqType, x: freqX };
 
-  const habit = { id, name, color: _selectedHabitColor, freq };
+  const habit = { id, name, color: _selectedHabitColor, freq, updatedAt: Date.now() };
   const habits = getData('habits', []);
   const idx = habits.findIndex(h => h.id === id);
   if (idx >= 0) habits[idx] = habit; else habits.push(habit);
@@ -5422,6 +5437,7 @@ function archiveHabitConfirm(habitId) {
     `<small style="color:var(--text-3)">${habit.archived ? '習慣將回到進行中清單' : '封存後移至封存區，打卡記錄與成就均保留'}</small>`,
     () => {
       habit.archived = !habit.archived;
+      habit.updatedAt = Date.now();
       setData('habits', habits);
       closeBottomSheet('sheet-habit-form');
       renderHabits();
@@ -5490,6 +5506,7 @@ function deleteHabitConfirm(habitId) {
     () => {
       const habits = getData('habits', []).filter(h => h.id !== habitId);
       setData('habits', habits);
+      _recordDeletion('habits', habitId);
       const log = getData('habitLog', {});
       Object.keys(log).forEach(ds => { if (log[ds]) delete log[ds][habitId]; });
       setData('habitLog', log);
@@ -6666,6 +6683,7 @@ function saveInbodyRecord() {
     ...seg,
   };
   if (!rec.weight && !rec.fatPct && !rec.muscle) { showToast('請至少填寫一項數據'); return; }
+  rec.updatedAt = Date.now();
   const records = getData('inbody', []);
   const idx = records.findIndex(r => r.id === id);
   if (idx >= 0) records[idx] = rec; else records.push(rec);
@@ -6682,6 +6700,7 @@ function deleteInbodyRecord(recordId) {
   showConfirm('確定刪除此體組成記錄？', () => {
     const records = getData('inbody', []).filter(r => r.id !== recordId);
     setData('inbody', records);
+    _recordDeletion('inbody', recordId);
     closeBottomSheet('sheet-inbody-form');
     renderInbody();
     showToast('記錄已刪除');
@@ -8192,9 +8211,17 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           // 把所有還原的鍵時間戳標記為「現在」，讓還原的備份被視為最新版、確實推上雲端蓋過舊資料
           try {
+            const now = Date.now();
+            // 集合項目補上 updatedAt=now，確保還原的資料勝過任何既有墓碑（不會被軟刪除吃掉）
+            ['foodDB', 'recipes', 'inbody', 'workoutLog', 'habits'].forEach(k => {
+              const arr = getData(k, null);
+              if (Array.isArray(arr)) {
+                arr.forEach(it => { if (it && typeof it === 'object') it.updatedAt = now; });
+                localStorage.setItem(k, JSON.stringify(arr));
+              }
+            });
             const meta = getData('syncMeta', { ts: {} });
             if (!meta.ts) meta.ts = {};
-            const now = Date.now();
             Object.keys(data).forEach(k => { if (k !== 'syncMeta') meta.ts[k] = now; });
             localStorage.setItem('syncMeta', JSON.stringify(meta));
           } catch (e) { console.warn('[import] 更新 syncMeta 失敗', e); }
