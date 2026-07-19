@@ -944,15 +944,19 @@ function openRecipeDetail(recipeId) {
         </div>
       </div>
 
-      ${recipe.ingredients?.length ? `
-        <div class="section-title">食材清單</div>
-        <ul class="ingredient-list-display">
-          ${recipe.ingredients.map(ing => `
+      ${recipe.ingredients?.length ? (() => {
+        const amt = ing => ing.grams ? ` &nbsp;${ing.grams}g` : (ing.amount && ing.unit ? ` &nbsp;${ing.amount} ${ing.unit}` : '');
+        const li = ing => `
             <li>
-              <span>${ing.name}${ing.grams ? ` &nbsp;${ing.grams}g` : ''}</span>
+              <span>${ing.name}${amt(ing)}</span>
               ${ing.nutrition?.calories ? `<span class="ingredient-kcal-badge">${ing.nutrition.calories} kcal · ${ing.nutrition.protein||0}g 蛋白質</span>` : ''}
-            </li>`).join('')}
-        </ul>` : ''}
+            </li>`;
+        const main = recipe.ingredients.filter(i => (i.group||'main') !== 'seasoning');
+        const seas = recipe.ingredients.filter(i => (i.group||'main') === 'seasoning');
+        return `
+          ${main.length ? `<div class="section-title">食材</div><ul class="ingredient-list-display">${main.map(li).join('')}</ul>` : ''}
+          ${seas.length ? `<div class="section-title" style="margin-top:14px">調味料</div><ul class="ingredient-list-display">${seas.map(li).join('')}</ul>` : ''}`;
+      })() : ''}
 
       ${recipe.steps?.length ? `
         <div class="section-title" style="margin-top:16px">料理步驟</div>
@@ -1001,10 +1005,12 @@ function openNewRecipeForm() {
       <span class="upload-icon">🖼</span>
       <span>點擊上傳食譜圖片</span>
     </div>`;
-  // Init ingredient rows (3 default)
+  // Init ingredient rows (3 食材 + 1 調味料 default)
   state.ingredientCount = 0;
   document.getElementById('ingredient-rows').innerHTML = '';
-  addIngredientRow(); addIngredientRow(); addIngredientRow();
+  document.getElementById('seasoning-rows').innerHTML = '';
+  addIngredientRow('main'); addIngredientRow('main'); addIngredientRow('main');
+  addIngredientRow('seasoning');
   // Init step rows (4 default)
   state.stepCount = 0;
   document.getElementById('step-rows').innerHTML = '';
@@ -1035,11 +1041,12 @@ function openEditRecipeForm(recipeId) {
   // Ingredients
   state.ingredientCount = 0;
   document.getElementById('ingredient-rows').innerHTML = '';
+  document.getElementById('seasoning-rows').innerHTML = '';
   const ingredients = recipe.ingredients || [];
-  if (!ingredients.length) { addIngredientRow(); addIngredientRow(); addIngredientRow(); }
+  if (!ingredients.length) { addIngredientRow('main'); addIngredientRow('main'); addIngredientRow('main'); addIngredientRow('seasoning'); }
   else {
     ingredients.forEach(ing => {
-      addIngredientRow();
+      addIngredientRow(ing.group === 'seasoning' ? 'seasoning' : 'main');
       const idx = state.ingredientCount - 1;
       const nameInput = document.querySelector(`#ing-row-${idx} .ing-name`);
       const gramsInput = document.querySelector(`#ing-row-${idx} .ing-grams`);
@@ -1182,11 +1189,13 @@ function cancelRecipeCrop() {
 }
 
 // Ingredient rows
-function addIngredientRow() {
+function addIngredientRow(group) {
+  group = group === 'seasoning' ? 'seasoning' : 'main';
   const idx = state.ingredientCount++;
   const row = document.createElement('div');
   row.className = 'ingredient-row';
   row.id = `ing-row-${idx}`;
+  row.dataset.group = group;
   row.innerHTML = `
     <div class="ingredient-name-wrap">
       <input type="text" class="form-input ing-name" placeholder="食材名稱" autocomplete="off"
@@ -1211,7 +1220,7 @@ function addIngredientRow() {
     </div>
     <div class="ingredient-kcal" id="ing-kcal-${idx}">—</div>
     <button type="button" class="remove-row-btn" onclick="removeIngredientRow(this)">✕</button>`;
-  document.getElementById('ingredient-rows').appendChild(row);
+  document.getElementById(group === 'seasoning' ? 'seasoning-rows' : 'ingredient-rows').appendChild(row);
 }
 
 function removeIngredientRow(btn) {
@@ -1241,7 +1250,7 @@ function searchIngredient(input) {
 }
 
 function removeIngredientRowLast() {
-  const rows = document.querySelectorAll('.ingredient-row');
+  const rows = document.querySelectorAll('#ingredient-rows .ingredient-row');
   if (rows.length <= 1) { showToast('至少需要一個食材欄位'); return; }
   rows[rows.length - 1].remove();
   recalcRecipeTotals();
@@ -1466,7 +1475,7 @@ function saveRecipeForm() {
     } else {
       nutrition = { calories:0, protein:0, fat:0, carbs:0, fiber:0 };
     }
-    ingredients.push({ foodId, name: ingName, amount, unit, grams, nutrition });
+    ingredients.push({ foodId, name: ingName, amount, unit, grams, nutrition, group: row.dataset.group || 'main' });
   });
 
   const steps = [];

@@ -453,14 +453,21 @@
       <!-- Ingredients -->
       <div class="form-section">
         <div class="section-header">
-          <label class="form-label">食材清單</label>
+          <label class="form-label">食材</label>
           <div class="step-controls">
             <button type="button" class="step-ctrl-btn" onclick="removeIngredientRowLast()">－</button>
-            <button type="button" class="step-ctrl-btn" onclick="addIngredientRow()">＋</button>
+            <button type="button" class="step-ctrl-btn" onclick="addIngredientRow('main')">＋</button>
             <button type="button" class="new-food-btn" onclick="openQuickCreateIngredientModal()">新建食材</button>
           </div>
         </div>
         <div id="ingredient-rows"></div>
+        <div class="section-header" style="margin-top:14px">
+          <label class="form-label">調味料</label>
+          <div class="step-controls">
+            <button type="button" class="step-ctrl-btn" onclick="addIngredientRow('seasoning')">＋</button>
+          </div>
+        </div>
+        <div id="seasoning-rows"></div>
       </div>
       <!-- Nutrition auto summary -->
       <div class="nutrition-auto-card" id="nutrition-auto-card">
@@ -966,7 +973,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="data.js?v=34"></script>
-<script src="app.js?v=69"></script>
+<script src="app.js?v=70"></script>
 <script src="vendor/supabase.js?v=1"></script>
 <script src="sync.js?v=4"></script>
 <script>
