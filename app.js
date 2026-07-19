@@ -392,6 +392,7 @@ function initStorage() {
     const keyOf = f => f.name + '|' + (f.state || '');
     const seen  = new Set(fdb.map(keyOf));
     const fixIds = (typeof CATEGORY_FIX_IDS !== 'undefined') ? CATEGORY_FIX_IDS : [];
+    const foodTombs = (getData('deletions', {}) || {}).foodDB || {};   // 使用者刪過的預設食材（含還原備份時移除的）
     DEFAULT_FOOD_DB.forEach(def => {
       if (byId[def.id]) {
         // 只修正明確在名單內、曾分錯類的少數品項；其餘保留使用者的分類編輯
@@ -403,9 +404,9 @@ function initStorage() {
         return;
       }
       if (seen.has(keyOf(def))) return;
-      // 標記 updatedAt=now：讓新併入的預設食材勝過任何殘留墓碑（例如還原備份留下的），
-      // 並可靠地跨裝置補上；只針對「新增的」預設，不影響使用者既有食材。
-      fdb.push({ ...def, updatedAt: Date.now() });
+      // 尊重使用者的刪除：這個預設食材若被刪過（刪除鍵或還原備份時移除，有墓碑）→ 不再加回去。
+      if (foodTombs[def.id]) return;
+      fdb.push(def);
     });
     setData('foodDB', fdb);
     setData('foodDBDefaultsVersion', FOOD_DEFAULTS_VERSION);
@@ -8225,8 +8226,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     try {
       const now = Date.now();
-      // 還原＝真正取代：本機原本有、但備份沒有的項目 → 記墓碑（跨裝置刪除）；
-      // 還原保留的項目補 updatedAt=now，確保勝過任何墓碑（含雲端聯集回來的舊版）。
+      // 還原＝完全取代：本機原本有、但備份沒有的項目（含 App 預設食材）→ 記墓碑跨裝置刪除。
+      // 備份就是使用者要的完整狀態；他可能刻意刪過我方預設，還原就該尊重那個「沒有」。
+      // migration 之後不會再把有墓碑的預設加回來（見 initStorage）。
       const tombs = getData('deletions', {});
       _collKeys.forEach(k => {
         const arr = getData(k, null);
